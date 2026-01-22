@@ -1,0 +1,15 @@
+def dashboard_page():
+    st.markdown("## 📊 Candidate Dashboard")
+
+    st.write("Welcome,", st.session_state.user[1])
+    st.write("Candidate ID:", st.session_state.user[0])
+
+    # TEMP: eligibility status (later DB-la store pannalaam)
+    eligible = True  # demo purpose
+
+    if eligible:
+        st.success("✅ Eligible for PM Internship Scheme")
+        if st.button("📝 Apply for Internship"):
+            st.session_state.page = "apply"
+    else:
+        st.error("❌ Not Eligible as per PM Internship rules")

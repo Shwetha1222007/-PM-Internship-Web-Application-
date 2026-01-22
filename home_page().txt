@@ -1,0 +1,93 @@
+def home_page():
+    # HERO SECTION
+    st.markdown("""
+    <div class="hero">
+        <div class="hero-title">👋 Welcome to PM Internship Scheme</div>
+        <div class="hero-sub">
+            Government of India initiative to empower youth with industry exposure
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # GOVT LOGO + INTRO
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.image(
+            "https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg",
+            width=120
+        )
+    with col2:
+        st.markdown("""
+        <div class="section-text">
+        The <b>PM Internship Scheme</b>, launched by the <b>Government of India</b>,
+        aims to provide young citizens with <b>real-life work experience</b> in
+        India’s leading public and private sector organizations.
+        </div>
+        """, unsafe_allow_html=True)
+
+    # EDUCATION SECTION
+    st.markdown("<div class='section'>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>🎓 Learn. Work. Grow.</div>", unsafe_allow_html=True)
+
+    col3, col4 = st.columns([1.4, 1])
+    with col3:
+        st.markdown("""
+        <div class="section-text">
+        This scheme bridges the gap between <b>education and employment</b>.
+        Candidates gain hands-on exposure, industry mentorship, and skill
+        enhancement while working on real projects.
+        <br><br>
+        <b>Key Learning Outcomes:</b>
+        <ul>
+            <li>Practical industry skills</li>
+            <li>Professional work culture</li>
+            <li>Career readiness</li>
+            <li>Nation-building contribution</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        st.image(
+            "https://cdn-icons-png.flaticon.com/512/3135/3135755.png",
+            caption="Education & Skill Development",
+            use_column_width=True
+        )
+
+    # ACTION BUTTONS
+    colA, colB = st.columns(2)
+    with colA:
+        if st.button("📝 Youth Registration"):
+            st.session_state.page = "register"
+            st.rerun()
+    with colB:
+        if st.button("🔐 Login"):
+            st.session_state.page = "login"
+            st.rerun()
+
+    # TOP COMPANIES SECTION
+    st.markdown("<div class='section-title section'>🏢 Top Participating Companies</div>", unsafe_allow_html=True)
+
+    cols = st.columns(5)
+    logos = [
+        "https://upload.wikimedia.org/wikipedia/commons/4/4f/REC_Limited_Logo.svg",
+        "https://upload.wikimedia.org/wikipedia/commons/1/1f/JSW_Group_logo.svg",
+        "https://upload.wikimedia.org/wikipedia/commons/3/3a/GAIL_Logo.svg",
+        "https://upload.wikimedia.org/wikipedia/commons/8/8b/Cognizant_logo_2022.svg",
+        "https://upload.wikimedia.org/wikipedia/commons/2/2b/L%26T_Logo.svg"
+    ]
+
+    for i in range(5):
+        with cols[i]:
+            st.markdown("<div class='logo-card'>", unsafe_allow_html=True)
+            st.image(logos[i], use_column_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    # FOOTER INFO
+    st.markdown("""
+    <hr>
+    <div class="section-text">
+    📌 This portal uses an <b>AI-based smart allocation engine</b> to ensure fair,
+    transparent, and efficient internship matching across sectors and regions.
+    </div>
+    """, unsafe_allow_html=True)

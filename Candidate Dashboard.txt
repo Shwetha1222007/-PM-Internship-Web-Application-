@@ -1,0 +1,8 @@
+if st.session_state.user:
+    st.title("📊 Candidate Dashboard")
+
+    st.write("Candidate ID:", st.session_state.user[0])
+    st.write("Name:", st.session_state.user[1])
+
+    if st.button("Apply Internship"):
+        st.session_state.apply = True
