@@ -5,14 +5,14 @@ from database import get_connection
 # -------------------------------
 def register_user(data):
     """
-    data = (name, email, phone, district, rural, social_category, password)
+    data = (name, email, phone, dob, district, rural, social_category, password)
     """
     conn = get_connection()
     cur = conn.cursor()
 
     cur.execute("""
-        INSERT INTO users (name, email, phone, district, rural, social_category, password)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (name, email, phone, dob, district, rural, social_category, password)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, data)
 
     conn.commit()
