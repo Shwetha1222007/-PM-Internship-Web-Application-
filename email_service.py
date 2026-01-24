@@ -2,97 +2,96 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-SENDER_EMAIL = "shwetha12206@gmail.com"          # 🔹 YOUR GMAIL
-APP_PASSWORD = "lgsgrnkiqskjclky"             # 🔹 GMAIL APP PASSWORD
-HR_EMAIL = "shwetha12206@gmail.com"               # 🔹 HR MAIL (same gmail OK)
+# Professional configuration
+SENDER_EMAIL = "shwetha12206@gmail.com"
+APP_PASSWORD = "lgsgrnkiqskjclky"
+HR_EMAIL = "shwetha12206@gmail.com"
 
-def send_hr_email(candidate_name, company, skills, candidate_id):
-    subject = f"ACTION REQUIRED: New Internship Application - {candidate_name} (ID: {candidate_id})"
+def send_hr_announcement(candidate_profile, application_data):
+    """
+    Sends a highly detailed email to HR for review.
+    """
+    subject = f"APPLICATION FOR REVIEW: PM Internship Scheme - {candidate_profile['name']}"
     
     html = f"""
     <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="background-color: #f8f9fa; padding: 20px; border-bottom: 2px solid #0056b3;">
-            <h2 style="color: #0056b3; margin: 0;">PM Internship Scheme - Portal Notification</h2>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; line-height: 1.6;">
+        <div style="background-color: #00296b; padding: 25px; text-align: center; color: white; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 22px;">PM Internship Scheme - Official India</h1>
+            <p style="margin: 5px 0 0 0; opacity: 0.8;">Smart Allocation Engine - Candidate Profile Disclosure</p>
         </div>
-        <div style="padding: 20px;">
+        <div style="padding: 30px; border: 1px solid #e1e4e8; border-top: none; background-color: #ffffff;">
             <p>Dear Hiring Manager,</p>
-            <p>A new application has been submitted for an internship at <strong>{company}</strong> through the PM Internship Scheme portal.</p>
+            <p>A new candidate has been identified as a <strong>High Match</strong> for <strong>{application_data['company']}</strong> in the <strong>{application_data['sector']}</strong> sector.</p>
             
-            <div style="background-color: #ffffff; border: 1px solid #e1e4e8; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 0;">Candidate Details</h3>
-                <p><strong>Name:</strong> {candidate_name}</p>
-                <p><strong>Candidate ID:</strong> {candidate_id}</p>
-                <p><strong>Skills:</strong> {skills}</p>
-                <p><strong>Sector:</strong> Applied Sector</p>
-            </div>
+            <h3 style="color: #00296b; border-bottom: 2px solid #f9ab00; padding-bottom: 8px;">Candidate Technical Summary</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff; width: 35%;">Full Name</td><td style="padding: 10px; background: #f8faff;">{candidate_profile['name']}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold;">ID Number</td><td style="padding: 10px;">PMIS-{str(candidate_profile['id']).zfill(6)}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">College Name</td><td style="padding: 10px; background: #f8faff;">{application_data['college_name']}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold;">Academic CGPA</td><td style="padding: 10px;">{application_data['cgpa']}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">Key Skills</td><td style="padding: 10px; background: #fffdf5;">{application_data['skills']}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold;">Languages</td><td style="padding: 10px;">{application_data['languages']}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">Rural Candidate</td><td style="padding: 10px; background: #f8faff;">{candidate_profile['rural']}</td></tr>
+            </table>
 
-            <p><strong>About the PM Internship Scheme:</strong><br>
-            A flagship initiative by the Government of India to provide 1 crore internship opportunities in top 500 companies over 5 years. This scheme aims to bridge the gap between academic learning and industry requirements.</p>
-
-            <p>Please review the candidate's profile and take formal action:</p>
-            
-            <div style="margin-top: 25px;">
-                <a href="http://localhost:8501/?action=accept&cid={candidate_id}&comp={company}" 
-                   style="background-color: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 15px;">
-                   APPROVE CANDIDATE
+            <div style="margin-top: 35px; text-align: center;">
+                <p style="font-size: 14px; color: #666;">Evaluate and take immediate action on this application:</p>
+                <a href="http://localhost:8501/?action=accept&cid={candidate_profile['id']}&comp={application_data['company']}" 
+                   style="background-color: #28a745; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 15px; display: inline-block;">
+                   APPROVE APPLICATION
                 </a>
-                <a href="http://localhost:8501/?action=reject&cid={candidate_id}&comp={company}" 
-                   style="background-color: #dc3545; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                   REJECT CANDIDATE
+                <a href="http://localhost:8501/?action=reject&cid={candidate_profile['id']}&comp={application_data['company']}" 
+                   style="background-color: #dc3545; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                   DECLINE PROFILE
                 </a>
             </div>
         </div>
-        <div style="margin-top: 30px; font-size: 0.8em; color: #777; border-top: 1px solid #eee; padding-top: 10px;">
-            This is an automated message from the PM Internship Scheme Smart Allocation Engine.
+        <div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">
+            This is an automated system generated email from the Ministry of Corporate Affairs Internship Portal.
         </div>
     </body>
     </html>
     """
     _send_mail(HR_EMAIL, subject, html, is_html=True)
 
-def send_candidate_email(candidate_email, status, company):
-    subject = f"UPDATE: Your Internship Application for {company}"
-    
-    status_color = "#28a745" if status == "Selected" else "#dc3545"
-    status_text = "CONGRATULATIONS!" if status == "Selected" else "Application Status Update"
+def send_update_to_candidate(email, status, company):
+    """
+    Professional update for candidate.
+    """
+    subject = f"OFFICIAL NOTIFICATION: Internship Application Update - {company}"
+    status_bg = "#d4edda" if status == "Selected" else "#f8d7da"
+    status_color = "#155724" if status == "Selected" else "#721c24"
     
     html = f"""
     <html>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="background-color: #f8f9fa; padding: 20px; border-bottom: 2px solid {status_color};">
-            <h2 style="color: {status_color}; margin: 0;">{status_text}</h2>
+        <div style="background-color: #00296b; padding: 20px; text-align: center; color: white;">
+            <h2 style="margin: 0;">PM Internship Scheme Hub</h2>
         </div>
-        <div style="padding: 20px;">
+        <div style="padding: 30px; border: 1px solid #e1e4e8; border-top: none;">
             <p>Dear Candidate,</p>
-            <p>Thank you for your interest in the <strong>PM Internship Scheme</strong>.</p>
+            <p>Thank you for your active participation in the <strong>PM Internship Scheme</strong>.</p>
+            <p>We are writing to provide a status update on your application for the internship opening at <strong>{company}</strong>.</p>
             
-            <p>We are writing to inform you about your application for an internship at <strong>{company}</strong>.</p>
-            
-            <div style="background-color: #fdfdfe; border: 1px solid #e1e4e8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid {status_color};">
-                <p style="font-size: 1.2em; margin: 0;">Final Status: <strong style="color: {status_color};">{status}</strong></p>
+            <div style="background-color: {status_bg}; color: {status_color}; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid {status_color}; text-align: center;">
+                <h3 style="margin: 0; font-size: 20px;">Current Status: {status}</h3>
             </div>
 
-            {"<p>Our team will contact you shortly regarding the next steps, documentation, and joining formalities.</p>" if status == "Selected" else "<p>While we are unable to proceed with your application for this specific role, your profile remains in our database for future opportunities that match your skill set.</p>"}
+            {f"<p>Congratulations! You have been shortlisted by the selection committee. The company human resources team will reach out to you within the next 48 hours with the final offer letter and joining instructions.</p>" if status == "Selected" else "<p>Thank you for your interest in this role. However, the company has decided to pursue other candidates whose profiles more closely match their current requirements. We encourage you to apply for other exciting opportunities on our portal.</p>"}
 
-            <p>Warm regards,<br>
-            <strong>Administrative Team</strong><br>
-            PM Internship Scheme Hub</p>
-        </div>
-        <div style="margin-top: 30px; font-size: 0.8em; color: #777; border-top: 1px solid #eee; padding-top: 10px;">
-            Please do not reply to this email. For support, visit the official portal.
+            <p style="margin-top: 30px;">Best regards,<br><strong>Central Administration Team</strong><br>PM Internship Scheme Portal</p>
         </div>
     </body>
     </html>
     """
-    _send_mail(candidate_email, subject, html, is_html=True)
+    _send_mail(email, subject, html, is_html=True)
 
 def _send_mail(receiver, subject, content, is_html=False):
     msg = MIMEMultipart()
     msg["Subject"] = subject
     msg["From"] = SENDER_EMAIL
     msg["To"] = receiver
-    
     msg.attach(MIMEText(content, "html" if is_html else "plain"))
 
     try:
@@ -101,6 +100,5 @@ def _send_mail(receiver, subject, content, is_html=False):
         server.login(SENDER_EMAIL, APP_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"📩 Mail sent to {receiver}")
     except Exception as e:
-        print(f"❌ Failed to send email: {e}")
+        print(f"SMTP Error: {e}")

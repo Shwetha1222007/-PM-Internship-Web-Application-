@@ -5,6 +5,7 @@ def get_connection():
     if not os.path.exists('data'):
         os.makedirs('data')
     conn = sqlite3.connect('data/internship.db', check_same_thread=False)
+    conn.row_factory = sqlite3.Row
     return conn
 
 def create_tables():
@@ -12,24 +13,28 @@ def create_tables():
     cur = conn.cursor()
 
     # --- USERS TABLE ---
-    # Fields: id, name, email, phone, dob, district, rural, social_category, password, created_at
+    # Fields: id, name, email, phone, password, dob, district, rural, social_category, aadhaar, address, blood_group, bank_account, created_at
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
-        email TEXT,
+        email TEXT UNIQUE,
         phone TEXT,
+        password TEXT,
         dob TEXT,
         district TEXT,
         rural TEXT,
         social_category TEXT,
-        password TEXT,
+        aadhaar TEXT,
+        address TEXT,
+        blood_group TEXT,
+        bank_account TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
     # --- APPLICATIONS TABLE ---
-    # Fields: id, user_id, skills, sector, company, location_pref, qualification, rural_urban, status, created_at
+    # Added all requested fields
     cur.execute("""
     CREATE TABLE IF NOT EXISTS applications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,34 +43,43 @@ def create_tables():
         sector TEXT,
         company TEXT,
         location_pref TEXT,
-        qualification TEXT,
-        rural_urban TEXT,
+        languages TEXT,
+        perc_12th REAL,
+        college_name TEXT,
+        cgpa REAL,
+        experience TEXT,
         status TEXT DEFAULT 'Applied',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
     )
     """)
 
-    # ROBUST MIGRATION: Ensure all columns exist individually
-    def add_col(table, col, definition):
+    # --- SCHEMA EVOLUTION (Adding missing columns if they don't exist) ---
+    def add_column_if_missing(table, column, definition):
         try:
-            cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {definition}")
-            print(f"✅ Added column {col} to {table}")
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+            print(f"✅ Added column {column} to {table}")
         except sqlite3.OperationalError as e:
-            if "duplicate column name" in str(e).lower():
-                pass # Column already exists
-            else:
-                print(f"⚠️ Error adding column {col} to {table}: {e}")
+            if "duplicate column name" not in str(e).lower():
+                print(f"⚠️ Error adding column {column} to {table}: {e}")
 
-    # Check for missing columns in existing tables
-    add_col('applications', 'location_pref', 'TEXT')
-    add_col('applications', 'qualification', 'TEXT')
-    add_col('applications', 'rural_urban', 'TEXT')
-    add_col('applications', 'status', "TEXT DEFAULT 'Applied'")
-    # SQLite ALTER TABLE cannot add CURRENT_TIMESTAMP as default. We use a constant for the migr.
-    add_col('applications', 'created_at', "TIMESTAMP DEFAULT '2024-01-22 00:00:00'")
-    
-    add_col('users', 'dob', 'TEXT')
-    add_col('users', 'created_at', "TIMESTAMP DEFAULT '2024-01-22 00:00:00'")
+    # Evolution for USERS
+    add_column_if_missing('users', 'aadhaar', 'TEXT')
+    add_column_if_missing('users', 'address', 'TEXT')
+    add_column_if_missing('users', 'blood_group', 'TEXT')
+    add_column_if_missing('users', 'bank_account', 'TEXT')
+
+    # Evolution for APPLICATIONS
+    add_column_if_missing('applications', 'languages', 'TEXT')
+    add_column_if_missing('applications', 'perc_12th', 'REAL')
+    add_column_if_missing('applications', 'college_name', 'TEXT')
+    add_column_if_missing('applications', 'cgpa', 'REAL')
+    add_column_if_missing('applications', 'experience', 'TEXT')
+    add_column_if_missing('applications', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
 
     conn.commit()
     conn.close()
+
+if __name__ == "__main__":
+    create_tables()
+    print("Database finalized successfully.")
