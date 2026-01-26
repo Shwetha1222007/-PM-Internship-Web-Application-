@@ -1,8 +1,11 @@
-# -*- coding: utf-8 -*-
 import streamlit as st
+import os
+import sys
 from database import create_tables, get_connection
 from auth import register_user, login_user
 from email_service import send_hr_announcement, send_update_to_candidate, send_candidate_confirmation
+
+
 import datetime
 
 st.set_page_config(
