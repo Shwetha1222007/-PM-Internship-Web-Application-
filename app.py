@@ -697,6 +697,18 @@ def handle_query_params():
                     <p>Company: <b>{target_company}</b></p>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                # Show candidate details to HR for verification
+                st.markdown("### 📋 Candidate Profile Details")
+                st.markdown(f"""
+                <div class="premium-card" style="padding: 20px; background: rgba(255,255,255,0.05);">
+                    <p><b>Name:</b> {user['name']}</p>
+                    <p><b>Email:</b> {user['email']}</p>
+                    <p><b>Academic CGPA:</b> {app['cgpa']}</p>
+                    <p><b>Skills:</b> {app['skills']}</p>
+                    <p><b>College:</b> {app['college_name']}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
                 # Send Email to Candidate
                 with st.spinner(f"Sending notification email to {user['email']}..."):

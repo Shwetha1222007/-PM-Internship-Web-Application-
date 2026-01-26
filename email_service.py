@@ -7,6 +7,9 @@ SENDER_EMAIL = "shwetha12206@gmail.com"
 APP_PASSWORD = "lgsgrnkiqskjclky"
 HR_EMAIL = "shwetha12206@gmail.com"
 
+# UPDATE THIS TO YOUR DEPLOYED URL (e.g., https://your-app.streamlit.app)
+BASE_URL = "http://localhost:8501" 
+
 def send_hr_announcement(candidate_profile, application_data):
     """
     Sends a highly detailed email to HR for review.
@@ -38,11 +41,11 @@ def send_hr_announcement(candidate_profile, application_data):
 
             <div style="margin-top: 35px; text-align: center;">
                 <p style="font-size: 14px; color: #666;">Evaluate and take immediate action on this application:</p>
-                <a href="http://localhost:8501/?action=accept&aid={application_data['app_id']}" 
+                <a href="{BASE_URL}/?action=accept&aid={application_data['app_id']}" 
                    style="background-color: #28a745; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 15px; display: inline-block;">
                    APPROVE APPLICATION
                 </a>
-                <a href="http://localhost:8501/?action=reject&aid={application_data['app_id']}" 
+                <a href="{BASE_URL}/?action=reject&aid={application_data['app_id']}" 
                    style="background-color: #dc3545; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
                    DECLINE PROFILE
                 </a>
