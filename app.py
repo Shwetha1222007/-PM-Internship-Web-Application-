@@ -841,7 +841,7 @@ def register():
     with col2:
         email = st.text_input("Email Address", placeholder="your.email@example.com")
         password = st.text_input("Password", type="password", placeholder="Create a strong password")
-        social_category = st.selectbox("Social Category", ["General", "OBC", "SC", "ST", "EWS"])
+        social_category = st.selectbox("Social Category", ["General", "OBC", "MBC", "SC", "ST", "EWS"])
         rural = st.selectbox("Area Type", ["Urban", "Rural"])
     
     aadhaar = st.text_input("Aadhaar Number", placeholder="XXXX-XXXX-XXXX")
@@ -851,13 +851,15 @@ def register():
     with col1:
         blood_group = st.selectbox("Blood Group", ["Select Blood Group", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"])
     with col2:
-        bank_account = st.text_input("Bank Account Number", placeholder="Account number for stipend")
+        bank_account = st.text_input("Bank Account Number", placeholder="11-digit account number", max_chars=11)
     
     st.markdown("<br>", unsafe_allow_html=True)
     
     if st.button("✨ CREATE ACCOUNT", use_container_width=True):
         if not name or not email or not password or blood_group == "Select Blood Group":
             st.error("⚠️ Please fill in all required fields!")
+        elif bank_account and len(bank_account) != 11:
+            st.error("⚠️ Bank Account Number must be exactly 11 digits!")
         else:
             if register_user((name, email, phone, password, str(dob), district, rural, 
                             social_category, aadhaar, address, blood_group, bank_account)):
