@@ -1,4 +1,11 @@
+from datetime import date
+from ui_styles import apply_ui, header
+
 def register_page():
+    apply_ui()
+    header()
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown("## 📝 PM Internship Registration")
 
     with st.form("registration_form"):
@@ -28,40 +35,4 @@ def register_page():
 
         st.subheader("🏠 Address Details")
         address = st.text_area("Full Address")
-        state = st.text_input("State")
-        district = st.text_input("District")
-        pincode = st.text_input("Pincode", max_chars=6)
-
-        st.subheader("🏦 Bank Details")
-        bank_name = st.text_input("Bank Name")
-        account_no = st.text_input("Account Number")
-        ifsc = st.text_input("IFSC Code")
-
-        st.subheader("✅ Eligibility Details")
-        employed = st.radio("Employed Full Time?", ["Yes", "No"])
-        studying = st.radio("Studying Full Time?", ["Yes", "No"])
-        income = st.selectbox("Family Income", ["Below 8 Lakhs", "Above 8 Lakhs"])
-        govt_job = st.radio("Govt Job in Family?", ["Yes", "No"])
-
-        submit = st.form_submit_button("Submit Registration")
-
-    if submit:
-        if not all([
-            name, email, phone, password, aadhaar,
-            address, state, district, pincode,
-            bank_name, account_no, ifsc
-        ]):
-            st.error("⚠️ Please fill all required details")
-            return
-
-        eligible, msg = check_eligibility(dob, employed, studying, income, govt_job)
-
-        if not eligible:
-            st.error("❌ Not Eligible")
-            st.warning(msg)
-            return
-
-        register_user((name, email, phone, password))
-        st.success("✅ Registration Successful")
-        st.session_state.page = "login"
-        st.rerun()
+        state = st.text_input("State"_

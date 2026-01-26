@@ -1,611 +1,1401 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
-import sqlite3
-import time
-from datetime import date
 from database import create_tables, get_connection
 from auth import register_user, login_user
 from email_service import send_hr_announcement, send_update_to_candidate
-from ai_engine import ai_filter_candidates
+import datetime
 
-# -------------------- CONFIGURATION --------------------
 st.set_page_config(
-    page_title="PM Internship Scheme | Govt of India",
+    page_title="PM Internship Scheme | Government of India",
     page_icon="🇮🇳",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# -------------------- GLOBAL CSS (DARK THEME FIXED) --------------------
+# ---------------- PREMIUM DARK THEME WITH ANIMATIONS ----------------
 st.markdown("""
 <style>
-    /* GLOBAL DARK THEME */
-    @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700;800&display=swap');
-    
-    :root {
-        --primary: #ffb703; /* Updated to user's badge color */
-        --secondary: #0b3c5d; 
-        --bg-dark: #0e1a2b;  /* User's requested background */
-        --card-bg: #16263f;  /* User's requested secondary/card */
-        --text-white: #ffffff;
-        --text-gray: #ccc;
-        --input-bg: #203250;
-    }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
 
-    html, body, [class*="css"] {
-        font-family: 'Segoe UI', sans-serif;
-        background-color: var(--bg-dark);
-        color: var(--text-white);
-    }
-    
-    /* REMOVE DEFAULT PADDING */
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 5rem;
-        max-width: 100% !important;
-    }
+* {
+    font-family: 'Inter', sans-serif;
+}
 
-    /* CUSTOM HEADER (DARK MODE) */
-    .header-container {
-        position: relative;
-        background-color: var(--card-bg);
-        padding: 15px 40px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 3px solid var(--primary);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        border-radius: 8px;
-        margin-bottom: 30px;
-    }
-    
-    .header-left {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-    }
-    
-    .emblem-img {
-        height: 60px;
-        width: auto;
-        filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
-    }
-    
-    .header-titles h3 {
-        color: var(--text-white);
-        font-weight: 800;
-        font-size: 16px;
-        margin: 0;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .header-titles p {
-        color: var(--text-gray);
-        font-size: 12px;
-        margin: 4px 0 0 0;
-        font-weight: 600;
-    }
-    
-    .header-center {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        text-align: center;
-    }
-    
-    .main-title {
-        background: linear-gradient(to right, #ffb703, #ffdd7d);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 26px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    
-    /* Responsive Header */
-    @media (max-width: 800px) {
-        .header-center { position: static; transform: none; margin-top: 15px; }
-        .header-container { flex-direction: column; text-align: center; }
-        .header-left { flex-direction: column; }
-    }
+.stApp {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+    color: #e0e0e0;
+}
 
-    /* BUTTONS */
-    div.stButton > button {
-        background: linear-gradient(135deg, var(--primary) 0%, #d48f00 100%);
-        color: #000;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 30px; /* Matching user's badge style */
-        font-weight: 700;
-        font-size: 1rem;
-        transition: transform 0.2s, box-shadow 0.2s;
-        width: 100%;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    
-    div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(255, 183, 3, 0.4);
-        color: #000;
-        border: none;
-    }
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
 
-    /* CARDS */
-    .custom-card {
-        background-color: var(--card-bg);
-        padding: 40px;
-        border-radius: 16px;
-        border: 1px solid #333;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-        margin-bottom: 25px;
-    }
-    
-    /* INPUT FIELDS (Streamlit Overrides) */
-    div[data-baseweb="input"] {
-        background-color: var(--input-bg) !important;
-        border-radius: 8px !important;
-        border: 1px solid #444 !important;
-        color: white !important;
-    }
-    
-    div[data-baseweb="select"] > div {
-        background-color: var(--input-bg) !important;
-        border-color: #444 !important;
-        color: white !important;
-    }
-    
-    h1, h2, h3 { color: white !important; }
-    p, label { color: #ccc !important; }
+::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
 
-    /* DASHBOARD */
-    .stat-box {
-        background: #16263f;
-        padding: 20px;
-        border-radius: 12px;
-        text-align: center;
-        border: 1px solid #3a3f55;
-        transition: transform 0.2s;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-    .stat-box:hover { transform: translateY(-5px); border-color: var(--primary); }
-    
-    .stat-num { font-size: 2.2rem; font-weight: bold; color: var(--primary); }
-    .stat-lbl { font-size: 0.9rem; color: #aaa; text-transform: uppercase; margin-top: 5px; }
-    
-    /* STATUS PAGE SPECIFIC */
-    .status-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 60vh;
-        text-align: center;
-    }
-    .status-icon { font-size: 80px; margin-bottom: 20px; }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #ffb703, #fb8500);
+    border-radius: 10px;
+}
 
+/* Header Container */
+.header-container {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    padding: 25px 50px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    border-image: linear-gradient(90deg, #ffb703, #fb8500, #ffb703) 1;
+    box-shadow: 0 10px 40px rgba(255, 183, 3, 0.2);
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: slideDown 0.6s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.gov-emblem {
+    font-size: 48px;
+    filter: drop-shadow(0 0 10px #ffb703);
+}
+
+.gov-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #b8b8b8;
+    line-height: 1.6;
+}
+
+.main-title {
+    font-size: 38px;
+    font-weight: 800;
+    background: linear-gradient(90deg, #ffb703, #fb8500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 30px rgba(255, 183, 3, 0.5);
+    letter-spacing: 1px;
+}
+
+.tagline {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    background: linear-gradient(90deg, #ffffff, #ffb703);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 60px 0 40px 0;
+    animation: fadeIn 1s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Premium Card */
+.premium-card {
+    background: rgba(26, 26, 26, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 50px;
+    border-radius: 25px;
+    border: 1px solid #333;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 183, 3, 0.1);
+    margin: 30px auto;
+    max-width: 600px;
+    animation: cardFloat 0.8s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.premium-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #ffb703, #fb8500, #ffb703);
+    border-radius: 25px;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.premium-card:hover::before {
+    opacity: 0.3;
+}
+
+@keyframes cardFloat {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.card-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffb703;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+/* Styled Inputs */
+div[data-baseweb="input"] input,
+textarea,
+.stTextInput input,
+.stTextArea textarea,
+.stDateInput input,
+.stNumberInput input {
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 2px solid #2a2a2a !important;
+    border-radius: 15px !important;
+    padding: 16px !important;
+    font-size: 15px !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Clean Selectbox Styling */
+div[data-testid="stSelectbox"] > label {
+    color: #ffb703 !important;
+}
+
+li[role="option"]:hover {
+    background: #2a2a2a !important;
+    color: #ffb703 !important;
+}
+
+div[data-baseweb="input"] input:focus,
+div[data-baseweb="select"] > div:focus,
+textarea:focus {
+    border-color: #ffb703 !important;
+    box-shadow: 0 0 20px rgba(255, 183, 3, 0.3) !important;
+    background: #1a1a1a !important;
+}
+
+/* Premium Buttons */
+div.stButton > button {
+    background: linear-gradient(135deg, #1f1f1f 0%, #2a2a2a 100%);
+    color: #ffffff;
+    border: 2px solid #ffb703;
+    border-radius: 15px;
+    padding: 16px 32px;
+    font-size: 17px;
+    font-weight: 700;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+div.stButton > button:hover {
+    background: linear-gradient(135deg, #ffb703 0%, #fb8500 100%);
+    color: #000000;
+    border-color: #ffb703;
+    box-shadow: 0 8px 30px rgba(255, 183, 3, 0.5);
+    transform: translateY(-3px);
+}
+
+div.stButton > button:active {
+    transform: translateY(-1px);
+}
+
+/* Success/Error Messages */
+.stAlert {
+    border-radius: 15px;
+    border-left: 5px solid #ffb703;
+    animation: slideInRight 0.5s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Info Section */
+.info-section {
+    background: rgba(255, 183, 3, 0.1);
+    border-left: 4px solid #ffb703;
+    padding: 20px;
+    border-radius: 12px;
+    margin: 20px 0;
+}
+
+/* Feature Grid */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+    margin: 40px 0;
+}
+
+.feature-card {
+    background: rgba(26, 26, 26, 0.8);
+    padding: 30px;
+    border-radius: 20px;
+    border: 1px solid #2a2a2a;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+    border-color: #ffb703;
+    box-shadow: 0 15px 40px rgba(255, 183, 3, 0.2);
+}
+
+.feature-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.feature-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffb703;
+    margin-bottom: 10px;
+}
+
+.feature-desc {
+    font-size: 14px;
+    color: #b8b8b8;
+    line-height: 1.6;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin: 30px 0;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    padding: 30px;
+    border-radius: 20px;
+    border: 1px solid #333;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(255, 183, 3, 0.3);
+}
+
+.stat-number {
+    font-size: 42px;
+    font-weight: 800;
+    background: linear-gradient(90deg, #ffb703, #fb8500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+    font-size: 16px;
+    color: #b8b8b8;
+    margin-top: 10px;
+}
+
+/* Loading Animation */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.loading {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Form Labels */
+label {
+    color: #b8b8b8 !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Image Animation */
+.stImage img {
+    animation: imageFloat 1.2s ease-out;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes imageFloat {
+    from {
+        transform: translateY(40px) scale(0.9);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* Profile Popup Modal */
+.profile-popup {
+    position: fixed;
+    top: 80px;
+    right: 30px;
+    width: 300px;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    padding: 0;
+    border-radius: 20px;
+    border: 2px solid #ffb703;
+    box-shadow: 0 15px 50px rgba(255, 183, 3, 0.3);
+    z-index: 1000;
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.profile-popup-header {
+    background: linear-gradient(135deg, #ffb703, #fb8500);
+    padding: 30px 25px;
+    border-radius: 18px 18px 0 0;
+    text-align: center;
+}
+
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    background: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: 700;
+    color: #ffb703;
+    margin: 0 auto 15px;
+    border: 3px solid #000;
+}
+
+.profile-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: #000;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.profile-email {
+    font-size: 12px;
+    color: #2d2d2d;
+    text-align: center;
+    word-break: break-all;
+}
+
+.profile-popup-body {
+    padding: 20px 25px;
+}
+
+.profile-info {
+    font-size: 14px;
+    color: #e0e0e0;
+    margin: 12px 0;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.profile-info-icon {
+    color: #ffb703;
+}
+
+/* Info Boxes (for home page) */
+.info-boxes {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+    max-width: 600px;
+    margin: 40px auto;
+}
+
+.info-box {
+    background: rgba(26, 26, 26, 0.8);
+    padding: 30px;
+    border-radius: 15px;
+    border: 1px solid #2a2a2a;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.info-box:hover {
+    transform: translateY(-5px);
+    border-color: #ffb703;
+    box-shadow: 0 10px 30px rgba(255, 183, 3, 0.2);
+}
+
+.info-box-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #ffb703;
+    margin-bottom: 10px;
+}
+
+.info-box-desc {
+    font-size: 14px;
+    color: #b8b8b8;
+    line-height: 1.6;
+}
+
+/* Program Description */
+.program-desc {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 30px;
+    background: rgba(26, 26, 26, 0.6);
+    border-radius: 15px;
+    text-align: left;
+    line-height: 1.8;
+    font-size: 15px;
+    color: #c8c8c8;
+}
+
+/* Application Detail Card */
+.app-detail-card {
+    background: rgba(26, 26, 26, 0.95);
+    padding: 30px;
+    border-radius: 20px;
+    border: 1px solid #333;
+    margin: 20px 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.app-detail-header {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffb703;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #2a2a2a;
+}
+
+.app-detail-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 15px;
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+}
+
+.app-detail-label {
+    font-weight: 700;
+    color: #ffb703;
+    font-size: 14px;
+}
+
+.app-detail-value {
+    color: #e0e0e0;
+    font-size: 14px;
+}
+
+/* Additional Dark Theme Fixes */
+.stDateInput > div > div > input {
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 2px solid #2a2a2a !important;
+}
+
+/* Calendar Popup */
+div[data-baseweb="calendar"] {
+    background: #1a1a1a !important;
+    border: 2px solid #2a2a2a !important;
+}
+
+div[data-baseweb="calendar"] button {
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+}
+
+div[data-baseweb="calendar"] button:hover {
+    background: #2a2a2a !important;
+    color: #ffb703 !important;
+}
+
+/* Number Input */
+.stNumberInput input {
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+}
+
+/* Remove white backgrounds from all streamlit components */
+.stMarkdown, .stText, .element-container {
+    color: #e0e0e0 !important;
+}
+
+/* Success/Error boxes dark theme */
+.stSuccess, .stError, .stWarning, .stInfo {
+    background: rgba(26, 26, 26, 0.8) !important;
+    color: #ffffff !important;
+}
+
+/* Welcome Message */
+.welcome-msg {
+    font-size: 24px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 10px;
+}
+
+.user-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #ffb703, #fb8500);
+    color: #000;
+    padding: 8px 20px;
+    border-radius: 25px;
+    font-weight: 700;
+    margin-left: 10px;
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+    font-size: 14px;
+    margin-top: 60px;
+    border-top: 1px solid #2a2a2a;
+}
 </style>
 """, unsafe_allow_html=True)
 
-
-# -------------------- INITIALIZATION --------------------
+# ---------------- INIT ----------------
 create_tables()
 
-# Initialize Session State
+
+
+# ---------------- HEADER ----------------
+def render_header():
+    st.markdown("""
+    <div class="header-container">
+        <div class="header-left">
+            <div class="gov-emblem">🇮🇳</div>
+            <div class="gov-text">
+                <b>Government of India</b><br>
+                Ministry of Corporate Affairs
+            </div>
+        </div>
+        <div class="main-title">PM Internship Scheme</div>
+        <div style="width: 100px;"></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ---------------- QUERY PARAMS HANDLER ----------------
+def handle_query_params():
+    """
+    Handles HR actions (Accept/Reject) via URL query parameters.
+    Expected format: /?action=accept&cid=123&comp=Google
+    """
+    try:
+        # Get query parameters
+        qp = st.query_params
+        action = qp.get("action")
+        user_id = qp.get("cid")
+        company = qp.get("comp")
+
+        if action and user_id and company:
+            # Validate action
+            if action not in ["accept", "reject"]:
+                return
+
+            render_header()
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            st.markdown(f'<div class="card-title">HR Administrative Action</div>', unsafe_allow_html=True)
+            
+            conn = get_connection()
+            
+            # Verify user exists
+            user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not user:
+                st.error("❌ User not found.")
+                conn.close()
+                st.stop()
+
+            # Determine new status
+            new_status = "Selected" if action == "accept" else "Rejected"
+            status_color = "#28a745" if new_status == "Selected" else "#dc3545"
+
+            # Update Application in DB
+            # Note: Matching by user_id and company since generic link structure was requested
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE applications 
+                SET status = ? 
+                WHERE user_id = ? AND company = ?
+            """, (new_status, user_id, company))
+            
+            if cursor.rowcount > 0:
+                conn.commit()
+                st.markdown(f"""
+                <div style="background: {status_color}; padding: 20px; border-radius: 10px; text-align: center; color: white; margin-bottom: 20px;">
+                    <h2>Action: {new_status.upper()}</h2>
+                    <p>Candidate: <b>{user['name']}</b></p>
+                    <p>Company: <b>{company}</b></p>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Send Email to Candidate
+                with st.spinner(f"Sending notification email to {user['email']}..."):
+                    try:
+                        send_update_to_candidate(user['email'], new_status, company)
+                        st.success(f"✅ Notification email successfully sent to candidate.")
+                    except Exception as e:
+                        st.error(f"⚠️ Database updated, but failed to send email: {e}")
+                
+            else:
+                st.warning(f"⚠️ No active application found for {user['name']} at {company}.")
+            
+            conn.close()
+            
+            if st.button("Home"):
+                st.query_params.clear()
+                st.session_state.page = "home"
+                st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.stop() # Stop further execution to show only this result
+            
+    except Exception as e:
+        st.error(f"System Error: {e}")
+
+# Call handler at startup
+handle_query_params()
+
 if "page" not in st.session_state:
     st.session_state.page = "home"
 if "user" not in st.session_state:
     st.session_state.user = None
-if "show_popup" not in st.session_state:
-    st.session_state.show_popup = False
-if "popup_status" not in st.session_state:
-    st.session_state.popup_status = None
 
-# -------------------- COMPONENT FUNCTIONS --------------------
 
-def render_header():
-    # Use unsafe_allow_html=True is CRITICAL here
-    st.markdown("""
-        <div class="header-container">
-            <div class="header-left">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" class="emblem-img">
-                <div class="header-titles">
-                    <h3>Government of India</h3>
-                    <p>Ministry of Corporate Affairs</p>
-                </div>
-            </div>
-            
-            <div class="header-center">
-                <div class="main-title">PM Internship Scheme</div>
-            </div>
-            
-            <div style="width: 100px;"></div>
-        </div>
-    """, unsafe_allow_html=True)
-
-# -------------------- ACTION HANDLER & PAGE --------------------
-
-def render_status_page(status, candidate_name, company):
+# ---------------- HOME ----------------
+def home():
     render_header()
     
-    color = "#28a745" if status == "Selected" else "#dc3545"
-    icon = "✅" if status == "Selected" else "🚫"
-    title = "Application Approved" if status == "Selected" else "Application Declined"
-    msg = f"Candidate <strong>{candidate_name}</strong> has been successfully <strong>{status}</strong> for <strong>{company}</strong>."
+    st.markdown('<div class="tagline">🚀 Bridging Talent with Opportunity</div>', unsafe_allow_html=True)
     
-    st.markdown(f"""
-        <div class="status-container">
-            <div class="custom-card" style="border-top: 5px solid {color}; max-width: 600px; margin: 0 auto;">
-                <div class="status-icon">{icon}</div>
-                <h1 style="color: {color} !important; margin-bottom: 15px;">{title}</h1>
-                <p style="font-size: 1.2rem; color: #ddd !important; margin-bottom: 30px; line-height: 1.6;">
-                    {msg}
-                </p>
-                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; font-size: 0.9rem; color: #aaa !important;">
-                    Review Action Recorded • Notification Sent to Candidate
-                </div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1,1,1])
-    with col2:
-        if st.button("RETURN TO PORTAL HOME"):
-             st.query_params.clear()
-             st.session_state.page = "home"
-             st.rerun()
-
-def handle_query_params():
-    try:
-        # Compatibility handling
-        if hasattr(st, "query_params"):
-            query_params = st.query_params
-        else:
-            query_params = st.experimental_get_query_params()
-
-        action = query_params.get("action")
-        cid = query_params.get("cid")
-        comp = query_params.get("comp")
-        
-        if isinstance(action, list): action = action[0]
-        if isinstance(cid, list): cid = cid[0]
-        if isinstance(comp, list): comp = comp[0]
-
-        if action and cid and comp:
-            new_status = "Selected" if action == "accept" else "Rejected"
-            
-            conn = get_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT email, name FROM users WHERE id = ?", (cid,))
-            user = cur.fetchone()
-            
-            if user:
-                cur.execute("UPDATE applications SET status = ? WHERE user_id = ? AND company = ?", 
-                           (new_status, cid, comp))
-                if cur.rowcount > 0:
-                    conn.commit()
-                    send_update_to_candidate(user['email'], new_status, comp)
-                conn.close()
-                render_status_page(new_status, user['name'], comp)
-                st.stop()
-            else:
-                 st.error("Invalid Candidate ID")
-                 st.stop()
-                 
-    except Exception as e:
-        conn.close() if 'conn' in locals() else None
-        st.error(f"System Error: {e}")
-
-handle_query_params()
-
-
-# -------------------- MAIN PAGE CONTENT --------------------
-
-def render_hero():
-    # USER REQUESTED HERO SECTION
+    # Hero Image - Natural student discussion
+    # Dynamic Information Section to replace image space
     st.markdown("""
-    <style>
-    .hero {
-        padding: 80px 40px;
-        text-align: center;
-        background: linear-gradient(135deg,#0e1a2b,#16263f);
-        border-radius: 20px;
-        margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        border: 1px solid #2d303e;
-    }
-    .hero h1 {
-        font-size: 52px;
-        font-weight: 800;
-        margin-bottom: 20px;
-        color: white !important;
-    }
-    .hero p {
-        font-size: 20px;
-        color: #ccc;
-        max-width: 800px;
-        margin: auto;
-    }
-    .badge {
-        background: #ffb703;
-        color: black;
-        padding: 8px 18px;
-        border-radius: 30px;
-        font-weight: 700;
-        font-size: 13px;
-        display: inline-block;
-        margin-bottom: 20px;
-    }
-    </style>
-
-    <div class="hero">
-        <span class="badge">Youth Empowerment Initiative 2025</span>
-        <h1>Bridging Talent<br>with Opportunity</h1>
-        <p>
-            India's largest internship program connecting ambitious youth with top 500 companies.
-            Experience real-world projects and build your future.
-        </p>
+    <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 40px; animation: fadeIn 1.2s ease-out;">
+        <div class="stat-card" style="flex: 1; max-width: 300px; border-top: 4px solid #ffb703;">
+            <div style="font-size: 24px; margin-bottom: 10px;">🌟</div>
+            <div style="font-weight: 700; color: #ffb703; margin-bottom: 10px;">Viksit Bharat 2047</div>
+            <div style="font-size: 14px; color: #b8b8b8;">Empowering the youth to lead India towards becoming a developed nation by 2047.</div>
+        </div>
+        <div class="stat-card" style="flex: 1; max-width: 300px; border-top: 4px solid #ffb703;">
+            <div style="font-size: 24px; margin-bottom: 10px;">💼</div>
+            <div style="font-weight: 700; color: #ffb703; margin-bottom: 10px;">Direct Exposure</div>
+            <div style="font-size: 14px; color: #b8b8b8;">Gain hands-on experience in top Indian corporates and global MNCs operating in India.</div>
+        </div>
+        <div class="stat-card" style="flex: 1; max-width: 300px; border-top: 4px solid #ffb703;">
+            <div style="font-size: 24px; margin-bottom: 10px;">📈</div>
+            <div style="font-weight: 700; color: #ffb703; margin-bottom: 10px;">Skill Development</div>
+            <div style="font-size: 14px; color: #b8b8b8;">Bridge the gap between academic learning and industry requirements.</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-def home():
-    render_header()
-    render_hero()
     
-    c1, mid, c2 = st.columns([1, 1.5, 1])
-    with mid:
-        col_login, col_reg = st.columns(2)
-        with col_login:
-            if st.button("LOGIN TO PORTAL", use_container_width=True):
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Program Description
+    st.markdown("""
+    <div class="program-desc">
+        The PM Internship Scheme is a visionary program launched to provide professional 
+        exposure to the youth of India. By partnering with the top 500 companies, the 
+        government ensures that candidates receive hands-on training in real-world 
+        environments.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Info Boxes
+    st.markdown("""
+        <div class="info-box">
+            <div class="info-box-title">₹ 5,000</div>
+            <div class="info-box-desc">Monthly Stipend via DBT</div>
+        </div>
+        <div class="info-box">
+            <div class="info-box-title">12 Months</div>
+            <div class="info-box-desc">Duration of Internship</div>
+        </div>
+        <div class="info-box">
+            <div class="info-box-title">Certifications</div>
+            <div class="info-box-desc">Industry Recognized Badges</div>
+        </div>
+        <div class="info-box">
+            <div class="info-box-title">Top 500</div>
+            <div class="info-box-desc">Partner Companies</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔐 LOGIN", use_container_width=True):
                 st.session_state.page = "login"
                 st.rerun()
-        with col_reg:
-            if st.button("REGISTER NOW", use_container_width=True):
+        with col2:
+            if st.button("📝 REGISTER", use_container_width=True):
                 st.session_state.page = "register"
                 st.rerun()
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    s1, s2, s3, s4 = st.columns(4)
-    with s1: st.markdown('<div class="stat-box"><div class="stat-num">1.25 Cr</div><div class="stat-lbl">Annual Internships</div></div>', unsafe_allow_html=True)
-    with s2: st.markdown('<div class="stat-box"><div class="stat-num">500+</div><div class="stat-lbl">Partner Companies</div></div>', unsafe_allow_html=True)
-    with s3: st.markdown('<div class="stat-box"><div class="stat-num">₹5,000</div><div class="stat-lbl">Monthly Stipend</div></div>', unsafe_allow_html=True)
-    with s4: st.markdown('<div class="stat-box"><div class="stat-num">100%</div><div class="stat-lbl">Digital Process</div></div>', unsafe_allow_html=True)
-
-    # Note: Images in HTML need to refer to online sources since local relative paths in st.markdown often break unless served.
-    # Using logo placeholders for stability.
+    
+    # Footer
     st.markdown("""
-        <style>
-        .partner-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-top: 50px; }
-        .partner-item { background: white; padding: 20px; border-radius: 12px; height: 100px; display: flex; align-items: center; justify-content: center; opacity: 0.9; }
-        .partner-item img { max-height: 50px; max-width: 100%; }
-        </style>
-        <h2 style="text-align:center; margin-top:80px; margin-bottom: 20px; color: var(--primary) !important; text-transform: uppercase; font-size: 1.2rem; letter-spacing: 2px;">Top Industry Partners</h2>
-        <div class="partner-grid">
-            <div class="partner-item"><img src="https://upload.wikimedia.org/wikipedia/en/3/30/REC_Limited_logo.png" alt="REC"></div>
-            <div class="partner-item"><img src="https://upload.wikimedia.org/wikipedia/commons/3/3b/JSW_Group_logo.svg" alt="JSW"></div>
-            <div class="partner-item"><img src="https://upload.wikimedia.org/wikipedia/en/b/b3/GAIL_Logo.png" alt="GAIL"></div>
-            <div class="partner-item"><img src="https://upload.wikimedia.org/wikipedia/commons/4/43/Cognizant_logo_2022.svg" alt="Cognizant"></div>
-            <div class="partner-item"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/L%26T.png/640px-L%26T.png" alt="L&T"></div>
-        </div>
+    <div class="footer">
+        <p>© 2026 Government of India | Ministry of Corporate Affairs</p>
+        <p>Empowering Youth Through Quality Internships</p>
+    </div>
     """, unsafe_allow_html=True)
 
+# ---------------- REGISTER ----------------
 def register():
     render_header()
-    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    # Informational Text to replace image space
+    st.markdown("""
+    <div style="text-align: center; max-width: 700px; margin: 0 auto 40px auto; animation: slideDown 0.5s ease-out;">
+        <h2 style="color: #ffb703; font-weight: 800; font-size: 32px; margin-bottom: 15px;">Join the Future of Corporate India</h2>
+        <p style="color: #e0e0e0; font-size: 16px; line-height: 1.6;">
+            By creating an account, you take the first step towards a prestigious 12-month internship 
+            with India's leading companies. Gain professional skills, earn a monthly stipend, 
+            and build a career that matters.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px;">
+            <div style="background: rgba(255, 183, 3, 0.1); padding: 10px 20px; border-radius: 10px; border: 1px solid rgba(255, 183, 3, 0.3);">
+                <span style="color: #ffb703; font-weight: 700;">1. Register</span>
+            </div>
+            <div style="background: rgba(255, 183, 3, 0.1); padding: 10px 20px; border-radius: 10px; border: 1px solid rgba(255, 183, 3, 0.2);">
+                <span style="color: #b8b8b8;">2. Apply</span>
+            </div>
+            <div style="background: rgba(255, 183, 3, 0.1); padding: 10px 20px; border-radius: 10px; border: 1px solid rgba(255, 183, 3, 0.2);">
+                <span style="color: #b8b8b8;">3. Get Hired</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">📝 Create Your Account</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Full Name", placeholder="Enter your full name")
+        phone = st.text_input("Phone Number", placeholder="+91 XXXXXXXXXX")
+        dob = st.date_input("Date of Birth", min_value=datetime.date(1990, 1, 1))
+        district = st.text_input("District", placeholder="Your district")
     
     with col2:
-        st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: var(--primary) !important; margin-bottom: 30px;'>Candidate Registration</h2>", unsafe_allow_html=True)
-        
-        with st.form("reg_form"):
-            st.markdown("### 1. Personal Details", unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            name = c1.text_input("Full Name")
-            dob = c2.date_input("Date of Birth")
-            
-            c3, c4 = st.columns(2)
-            email = c3.text_input("Email Address")
-            phone = c4.text_input("Mobile Number")
-            
-            st.markdown("### 2. Demographics & Identity", unsafe_allow_html=True)
-            c5, c6 = st.columns(2)
-            aadhaar = c5.text_input("Aadhaar Number")
-            category = c6.selectbox("Social Category", ["General", "OBC", "SC", "ST"])
-            
-            c7, c8 = st.columns(2)
-            district = c7.text_input("District")
-            rural = c8.selectbox("Area Type", ["Urban", "Rural"])
-            
-            address = st.text_area("Full Address")
-            password = st.text_input("Choose Password", type="password")
-            
-            if st.form_submit_button("CREATE ACCOUNT", use_container_width=True):
-                success = register_user((name, email, phone, password, str(dob), district, rural, category, aadhaar, address, "N/A", "N/A"))
-                if success:
-                    st.success("Registration Successful! Please Login.")
-                    st.session_state.page = "login"
-                    st.rerun()
-                else:
-                    st.error("Registration failed. Email might already exist.")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        if st.button("← Back to Home"):
-            st.session_state.page = "home"
-            st.rerun()
+        email = st.text_input("Email Address", placeholder="your.email@example.com")
+        password = st.text_input("Password", type="password", placeholder="Create a strong password")
+        social_category = st.selectbox("Social Category", ["General", "OBC", "SC", "ST", "EWS"])
+        rural = st.selectbox("Area Type", ["Urban", "Rural"])
+    
+    aadhaar = st.text_input("Aadhaar Number", placeholder="XXXX-XXXX-XXXX")
+    address = st.text_area("Address", placeholder="Enter your complete address")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        blood_group = st.selectbox("Blood Group", ["Select Blood Group", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"])
+    with col2:
+        bank_account = st.text_input("Bank Account Number", placeholder="Account number for stipend")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if st.button("✨ CREATE ACCOUNT", use_container_width=True):
+        if not name or not email or not password or blood_group == "Select Blood Group":
+            st.error("⚠️ Please fill in all required fields!")
+        else:
+            if register_user((name, email, phone, password, str(dob), district, rural, 
+                            social_category, aadhaar, address, blood_group, bank_account)):
+                st.success("✅ Registration Successful! Please login to continue.")
+                st.balloons()
+                st.session_state.page = "login"
+                st.rerun()
+            else:
+                st.error("❌ Registration failed. Email may already exist.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Back to Home"):
+        st.session_state.page = "home"
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
+# ---------------- LOGIN ----------------
 def login():
     render_header()
-    c1, c2, c3 = st.columns([1, 1, 1])
-    with c2:
-        st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align:center; color: white !important;'>Official Login</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; color:#888 !important;'>Access your dashboard</p>", unsafe_allow_html=True)
-        
-        email = st.text_input("Email ID")
-        password = st.text_input("Password", type="password")
-        
-        if st.button("SECURE LOGIN", use_container_width=True):
+    
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">🔐 Welcome Back</div>', unsafe_allow_html=True)
+    
+    email = st.text_input("Email Address", placeholder="your.email@example.com")
+    password = st.text_input("Password", type="password", placeholder="Enter your password")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if st.button("🚀 LOGIN", use_container_width=True):
+        if not email or not password:
+            st.error("⚠️ Please enter both email and password!")
+        else:
             user = login_user(email, password)
             if user:
                 st.session_state.user = dict(user)
+                st.success(f"✅ Welcome back, {user['name']}!")
                 st.session_state.page = "dashboard"
                 st.rerun()
             else:
-                st.error("Invalid Username or Password")
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Back Home", use_container_width=True):
-            st.session_state.page = "home"
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+                st.error("❌ Invalid credentials. Please try again.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Back to Home"):
+        st.session_state.page = "home"
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
+# ---------------- DASHBOARD ----------------
 def dashboard():
     render_header()
+    
     user = st.session_state.user
     
-    conn = get_connection()
-    app = conn.execute("SELECT * FROM applications WHERE user_id = ? ORDER BY id DESC LIMIT 1", (user['id'],)).fetchone()
-    conn.close()
-
-    if app and not st.session_state.show_popup:
-        status_key = f"pop_{app['id']}_{app['status']}"
-        if app['status'] in ['Selected', 'Rejected'] and status_key not in st.session_state:
-            st.session_state.show_popup = True
-            st.session_state.popup_status = app['status']
-            st.session_state[status_key] = True
-
-    if st.session_state.show_popup:
-        msg = f"Congratulations! You have been selected by {app['company']}!" if st.session_state.popup_status == "Selected" else "Your application was not shortlisted."
-        st.info(f"🔔 UPDATE: {msg}")
-        if st.button("Dismiss Notification"):
-            st.session_state.show_popup = False
-            st.rerun()
-
-    left, right = st.columns([1, 2.5])
+    # Profile Popup Toggle
+    if 'show_profile' not in st.session_state:
+        st.session_state.show_profile = False
     
-    with left:
+    # Profile popup when clicked
+    if st.session_state.show_profile:
+        initials = ''.join([word[0].upper() for word in user['name'].split()[:2]])
         st.markdown(f"""
-        <div class="custom-card" style="text-align:center;">
-            <div style="width: 80px; height: 80px; background: #262a36; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 30px; border: 2px solid var(--primary);">👤</div>
-            <h3 style="margin:0; color:white !important;">{user['name']}</h3>
-            <p style="color:#aaa !important; font-size: 0.9rem;">{user['email']}</p>
-            <hr style="border-color: #444; margin: 20px 0;">
-            <div style="text-align:left; font-size:14px; color:#ccc; line-height: 1.8;">
-                <p>📍 {user['address'][:40] if user['address'] else 'N/A'}</p>
-                <p>🆔 {user['aadhaar']}</p>
-                <p>📱 {user['phone']}</p>
-                <p>🎓 Category: {user['social_category']}</p>
+        <div class="profile-popup">
+            <div class="profile-popup-header">
+                <div class="profile-avatar">{initials}</div>
+                <div class="profile-name">{user['name']}</div>
+                <div class="profile-email">{user['email']}</div>
+            </div>
+            <div class="profile-popup-body">
+                <div class="profile-info">
+                    <span class="profile-info-icon">📞</span>
+                    <span>{user['phone'] or 'Not provided'}</span>
+                </div>
+                <div class="profile-info">
+                    <span class="profile-info-icon">📍</span>
+                    <span>{user['district'] or 'Not provided'}</span>
+                </div>
+                <div class="profile-info">
+                    <span class="profile-info-icon">🩸</span>
+                    <span>{user['blood_group'] or 'Not provided'}</span>
+                </div>
+                <div class="profile-info">
+                    <span class="profile-info-icon">🎂</span>
+                    <span>{user['dob'] or 'Not provided'}</span>
+                </div>
+                <div class="profile-info">
+                    <span class="profile-info-icon">🆔</span>
+                    <span>{user['aadhaar'] or 'Not provided'}</span>
+                </div>
+                <div class="profile-info">
+                    <span class="profile-info-icon">🏠</span>
+                    <span style="font-size: 12px;">{user['address'] or 'Not provided'}</span>
+                </div>
+                 <div class="profile-info">
+                    <span class="profile-info-icon">🏦</span>
+                    <span>{user['bank_account'] or 'Not provided'}</span>
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        if st.button("LOGOUT"):
+    
+    # Welcome Section
+    st.markdown(f"""
+    <div class="welcome-msg">
+        Welcome back, {user['name']}! 👋
+        <span class="user-badge">VERIFIED</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Stats Dashboard
+    conn = get_connection()
+    
+    # Get application count
+    app_count = conn.execute("SELECT COUNT(*) FROM applications WHERE user_id = ?", 
+                            (user['id'],)).fetchone()[0]
+    
+    # Get recent applications
+    applications = conn.execute("""
+        SELECT * FROM applications WHERE user_id = ? ORDER BY created_at DESC LIMIT 10
+    """, (user['id'],)).fetchall()
+    
+    conn.close()
+    
+    # Statistics Cards
+    st.markdown(f"""
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <div class="stat-number">{app_count}</div>
+            <div class="stat-label">Applications Submitted</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{len([a for a in applications if a['status'] == 'Applied'])}</div>
+            <div class="stat-label">Pending Review</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">100+</div>
+            <div class="stat-label">Companies Available</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # Quick Actions
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("📋 APPLY FOR INTERNSHIP", use_container_width=True):
+            st.session_state.page = "apply"
+            st.session_state.show_profile = False
+            st.rerun()
+    
+    with col2:
+        if st.button("📊 MY APPLICATIONS", use_container_width=True):
+            st.session_state.page = "view_applications"
+            st.session_state.show_profile = False
+            st.rerun()
+    
+    with col3:
+        # Profile button with toggle
+        profile_label = "❌ CLOSE" if st.session_state.show_profile else "👤 PROFILE"
+        if st.button(profile_label, use_container_width=True):
+            st.session_state.show_profile = not st.session_state.show_profile
+            st.rerun()
+    
+    with col4:
+        if st.button("🚪 LOGOUT", use_container_width=True):
             st.session_state.user = None
             st.session_state.page = "home"
+            st.session_state.show_profile = False
             st.rerun()
-
-    with right:
-        st.markdown("<h2 style='margin-top:0; color:white !important;'>Application Dashboard</h2>", unsafe_allow_html=True)
+    
+    # Recent Applications
+    if applications:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("### 📑 Recent Applications")
         
-        if app:
-            status = app['status']
-            if status == "Applied":
-                clr, msg = "#f9ab00", "Under Review"
-            elif status == "Selected":
-                clr, msg = "#28a745", "Offer Received"
-            else:
-                clr, msg = "#dc3545", "Not Selected"
+        for app in applications:
+            status_color = "#4CAF50" if app['status'] == 'Applied' else "#FF9800"
+            col1, col2 = st.columns([4, 1])
             
-            st.markdown(f"""
-            <div class="custom-card" style="border-left: 5px solid {clr};">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <h2 style="margin:0; color:{clr} !important;">{app['company']}</h2>
-                        <p style="margin:5px 0 0 0; color:#ddd !important; font-weight: 500;">Sector: {app['sector']}</p>
-                        <p style="margin:5px 0 0 0; color:#aaa !important; font-size: 0.9rem;">Skillset: {app['skills']}</p>
-                    </div>
-                    <div style="text-align:right;">
-                        <span style="background:{clr}; color:{'#fff' if status != 'Applied' else '#000'}; padding:8px 16px; border-radius:20px; font-weight:bold; font-size:14px;">
-                            {status.upper()}
-                        </span>
-                        <p style="margin:10px 0 0 0; font-size:12px; color:#666 !important;">Applied on: {app['created_at']}</p>
+            with col1:
+                st.markdown(f"""
+                <div class="stat-card" style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 18px; font-weight: 700; color: #ffb703;">
+                                {app['sector']} Internship
+                            </div>
+                            <div style="font-size: 14px; color: #b8b8b8; margin-top: 5px;">
+                                Applied on: {app['created_at']}
+                            </div>
+                        </div>
+                        <div style="background: {status_color}; color: white; padding: 8px 20px; border-radius: 20px; font-weight: 700;">
+                            {app['status']}
+                        </div>
                     </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
             
-            if status == "Selected":
-                st.balloons()
-                st.success("Please check your email for the offer letter and joining instructions.")
-            elif status == "Rejected":
-                 st.markdown("""
-                 <div style='background: rgba(220, 53, 69, 0.1); border: 1px solid #dc3545; padding: 15px; border-radius: 8px; color: #ffcccc;'>
-                    We encourage you to upskill and apply for other opportunities.
-                 </div>
-                 """, unsafe_allow_html=True)
-
-            if status != "Applied":
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("SUBMIT NEW APPLICATION"):
-                    st.session_state.page = "apply"
+            with col2:
+                # Dynamic status message check
+                if app['status'] == 'Selected':
+                    st.success("🎉 You have been selected!")
+                elif app['status'] == 'Rejected':
+                    st.error("❌ Application not matched.")
+                
+                if st.button("View Details", key=f"view_{app['id']}", use_container_width=True):
+                    st.session_state.selected_app_id = app['id']
+                    st.session_state.page = "application_detail"
                     st.rerun()
-        else:
-            st.markdown("""
-            <div class="custom-card" style="text-align: center; border: 2px dashed #444; padding: 50px;">
-                <h3 style="color: #888 !important;">No Active Applications</h3>
-                <p style="color: #666 !important; margin-bottom: 20px;">You haven't applied to any companies yet.</p>
-                <div style="color: var(--primary); font-size: 3rem; margin-bottom: 20px;">📝</div>
-                <p style="color:#aaa !important;">Thousands of opportunities are waiting for you.</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("START APPLICATION PROCESS", type="primary"):
-                st.session_state.page = "apply"
-                st.rerun()
+    else:
+        st.info("📝 No applications yet. Start by applying for an internship!")
 
+# ---------------- APPLY ----------------
 def apply():
     render_header()
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-        st.markdown("<h2 style='color:var(--primary) !important; margin-bottom: 20px;'>New Internship Application</h2>", unsafe_allow_html=True)
+    
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">📋 Internship Application Form</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="info-section">
+        <b>ℹ️ Application Instructions</b><br>
+        Fill in all details carefully. Your application will be reviewed by our AI engine and matched with suitable opportunities.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Personal Information
+    st.markdown("### 👤 Personal Information")
+    col1, col2 = st.columns(2)
+    with col1:
+        sector_options = [
+            "Select Sector",
+            "Information Technology & Software",
+            "Banking, Finance & Insurance",
+            "Energy, Oil & Gas",
+            "Manufacturing & Heavy Industry",
+            "Consumer Goods & Pharmaceuticals",
+            "Other Major Corporates"
+        ]
+        sector = st.selectbox("Preferred Sector", sector_options, key="sector_select")
         
-        with st.form("app_form"):
-            c1, c2 = st.columns(2)
-            sector = c1.selectbox("Preferred Sector", ["IT & Software", "Finance & Banking", "Manufacturing", "Energy", "Infrastructure"])
-            company = c2.selectbox("Target Company", ["REC Limited", "JSW Steel", "GAIL India", "Cognizant", "Larsen & Toubro"])
+        location_pref = st.text_input("Preferred Location", placeholder="City or State (e.g., Bangalore, Mumbai)")
+        college_name = st.text_input("College/University Name")
+    
+    with col2:
+        company_options = [
+            "Select Company",
+            # IT
+            "Tata Consultancy Services (TCS)", "Infosys Ltd.", "Wipro Ltd.", "HCL Technologies Ltd.", 
+            "Tech Mahindra Ltd.", "Cognizant Technology Solutions India Pvt. Ltd.", 
+            "Google IT Services India Pvt. Ltd.", "Microsoft India (R&D) Pvt. Ltd.", "IBM India Pvt. Ltd.",
+            # Finance
+            "HDFC Bank Ltd.", "ICICI Bank Ltd.", "Axis Bank Ltd.", "IndusInd Bank Ltd.", 
+            "Bajaj Finance Ltd.", "SBI Cards & Payment Services Ltd.", 
+            "ICICI Lombard General Insurance Co.", "Max Life Insurance Company Ltd.",
+            # Energy
+            "Reliance Industries Ltd.", "Oil and Natural Gas Corporation (ONGC)", 
+            "Indian Oil Corporation Ltd. (IOCL)", "GAIL (India) Ltd.", "Bharat Petroleum Corporation Ltd. (BPCL)", 
+            "Hindustan Petroleum Corporation Ltd.", "Adani Total Gas Ltd.",
+            # Manufacturing
+            "Tata Steel Ltd.", "Larsen & Toubro Ltd.", "Mahindra & Mahindra Ltd.", 
+            "Jindal Steel & Power Ltd.", "NTPC Ltd.", "Hindalco Industries Ltd.",
+            # Pharma/Consumer
+            "Hindustan Unilever Ltd.", "Serum Institute of India Pvt. Ltd.", "Zydus Lifesciences Ltd.", 
+            "Glenmark Pharmaceuticals Ltd.", "Reckitt Benckiser (India) Pvt. Ltd.",
+            # Others
+            "Reliance Jio Infocomm Ltd.", "Power Grid Corporation of India Ltd.", 
+            "Maruti Suzuki India Ltd.", "Vedanta Ltd.", "Samsung India Electronics Pvt. Ltd."
+        ]
+        company = st.selectbox("Target Company", company_options, key="company_select")
             
-            c3, c4 = st.columns(2)
-            college = c3.text_input("College/Institute Name")
-            cgpa = c4.number_input("Current CGPA", max_value=10.0, step=0.1)
+        languages = st.text_input("Languages Known", placeholder="English, Hindi, etc.")
+        cgpa_str = st.text_input("CGPA (0-10)", placeholder="e.g., 8.5")
+    
+    # Education & Skills
+    st.markdown("### 📚 Education & Skills")
+    col1, col2 = st.columns(2)
+    with col1:
+        perc_12th_str = st.text_input("12th Grade Percentage", placeholder="e.g., 85.5")
+    with col2:
+        has_experience = st.radio("Do you have prior experience?", ["No", "Yes"], horizontal=True)
+        if has_experience == "Yes":
+            exp_years = st.number_input("Years of Experience", min_value=0.5, step=0.5, format="%.1f")
+            experience = f"{exp_years} Years"
+        else:
+            experience = "None"
+    
+    skills = st.text_area("Technical Skills & Competencies", 
+                         placeholder="List your skills, technologies, tools, etc.",
+                         height=120)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if st.button("🚀 SUBMIT APPLICATION", use_container_width=True):
+        if not skills or sector == "Select Sector" or company == "Select Company":
+            st.error("⚠️ Please fill in all required fields!")
+        else:
+            # Convert percentage strings to floats
+            try:
+                cgpa = float(cgpa_str) if cgpa_str else 0.0
+                perc_12th = float(perc_12th_str) if perc_12th_str else 0.0
+            except ValueError:
+                st.error("⚠️ Please enter valid numbers for CGPA and Percentage!")
+                return
             
-            skills = st.text_area("Key Skills (Comma separated)")
-            col_pref = st.text_input("Preferred Location")
+            conn = get_connection()
+            conn.execute("""
+                INSERT INTO applications 
+                (user_id, skills, sector, company, location_pref, languages, perc_12th, college_name, cgpa, experience, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (st.session_state.user['id'], skills, sector, company, location_pref, 
+                  languages, perc_12th, college_name, cgpa, experience, "Applied"))
+            conn.commit()
+            conn.close()
             
-            if st.form_submit_button("SUBMIT APPLICATION", use_container_width=True):
-                conn = get_connection()
-                conn.execute("INSERT INTO applications (user_id, skills, sector, company, location_pref, college_name, cgpa, status) VALUES (?,?,?,?,?,?,?,?)",
-                            (st.session_state.user['id'], skills, sector, company, col_pref, college, cgpa, "Applied"))
-                conn.commit()
-                conn.close()
+            # Email sending with comprehensive error handling
+            try:
+                # Prepare data dictionary exactly as expected by strictly typed email service
+                app_data = {
+                    'skills': skills,
+                    'sector': sector,
+                    'company': company or 'General Pool', # Ensure company is never empty for the link
+                    'college_name': college_name or 'Not provided',
+                    'cgpa': cgpa,
+                    'languages': languages or 'Not provided',
+                    'experience': experience
+                }
                 
-                send_hr_announcement(st.session_state.user, {
-                    'skills': skills, 'sector': sector, 'company': company, 
-                    'college_name': college, 'cgpa': cgpa, 'languages': 'English, Hindi'
-                })
-                
-                st.success("Application Submitted Successfully!")
-                st.session_state.page = "dashboard"
-                st.rerun()
-                
-        if st.button("Cancel"):
+                # Show spinner while sending
+                with st.spinner("Submitting application and notifying HR..."):
+                     send_hr_announcement(st.session_state.user, app_data)
+                     
+            except Exception as e:
+                print(f"Email Error (non-critical): {e}")
+                # Continue with application submission even if email fails
+            
+            st.success("✅ Application Submitted Successfully!")
+            st.balloons()
+            st.session_state.page = "dashboard"
+            st.session_state.show_profile = False
+            st.rerun()
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Back to Dashboard"):
+        st.session_state.page = "dashboard"
+        st.session_state.show_profile = False
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------- VIEW APPLICATIONS ----------------
+def view_applications():
+    render_header()
+    
+    user = st.session_state.user
+    
+    st.markdown("### 📊 My Applications")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    conn = get_connection()
+    applications = conn.execute("""
+        SELECT * FROM applications WHERE user_id = ? ORDER BY created_at DESC
+    """, (user['id'],)).fetchall()
+    conn.close()
+    
+    if applications:
+        for app in applications:
+            status_color = "#4CAF50" if app['status'] == 'Applied' else "#FF9800"
+            
+            col1, col2 = st.columns([4, 1])
+            
+            with col1:
+                st.markdown(f"""
+                <div class="stat-card" style="margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 20px; font-weight: 700; color: #ffb703;">
+                                {app['sector']} Internship
+                            </div>
+                            <div style="font-size: 14px; color: #b8b8b8; margin-top: 8px;">
+                                📅 Applied: {app['created_at']}<br>
+                                🏢 Company: {app['company'] or 'Any'}<br>
+                                📍 Location: {app['location_pref'] or 'Any'}
+                            </div>
+                        </div>
+                        <div style="background: {status_color}; color: white; padding: 10px 25px; border-radius: 25px; font-weight: 700; font-size: 16px;">
+                            {app['status']}
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                if st.button("View Details", key=f"detail_{app['id']}", use_container_width=True):
+                    st.session_state.selected_app_id = app['id']
+                    st.session_state.page = "application_detail"
+                    st.rerun()
+    else:
+        st.info("📝 No applications yet. Start by applying for an internship!")
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    if st.button("← Back to Dashboard"):
+        st.session_state.page = "dashboard"
+        st.rerun()
+
+# ---------------- APPLICATION DETAIL ----------------
+def application_detail():
+    render_header()
+    
+    if 'selected_app_id' not in st.session_state:
+        st.session_state.page = "dashboard"
+        st.rerun()
+        return
+    
+    conn = get_connection()
+    app = conn.execute("""
+        SELECT * FROM applications WHERE id = ?
+    """, (st.session_state.selected_app_id,)).fetchone()
+    conn.close()
+    
+    if not app:
+        st.error("Application not found!")
+        st.session_state.page = "dashboard"
+        st.rerun()
+        return
+    
+    status_color = "#4CAF50" if app['status'] == 'Applied' else "#FF9800"
+    
+    st.markdown(f"""
+    <div class="app-detail-card">
+        <div class="app-detail-header">
+            📋 Application Details
+            <span style="float: right; background: {status_color}; color: white; padding: 8px 20px; border-radius: 20px; font-size: 16px;">
+                {app['status']}
+            </span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Application Information
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.markdown("#### 📌 Basic Information")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"""
+        <div class="app-detail-row">
+            <div class="app-detail-label">Application ID:</div>
+            <div class="app-detail-value">#{app['id']}</div>
+        </div>
+        <div class="app-detail-row">
+            <div class="app-detail-label">Sector:</div>
+            <div class="app-detail-value">{app['sector']}</div>
+        </div>
+        <div class="app-detail-row">
+            <div class="app-detail-label">Preferred Company:</div>
+            <div class="app-detail-value">{app['company'] or 'Any Company'}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="app-detail-row">
+            <div class="app-detail-label">Applied On:</div>
+            <div class="app-detail-value">{app['created_at']}</div>
+        </div>
+        <div class="app-detail-row">
+            <div class="app-detail-label">Location Preference:</div>
+            <div class="app-detail-value">{app['location_pref'] or 'Any Location'}</div>
+        </div>
+        <div class="app-detail-row">
+            <div class="app-detail-label">Status:</div>
+            <div class="app-detail-value">{app['status']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 🎓 Education & Qualifications")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"""
+        <div class="app-detail-row">
+            <div class="app-detail-label">College/University:</div>
+            <div class="app-detail-value">{app['college_name'] or 'Not provided'}</div>
+        </div>
+        <div class="app-detail-row">
+            <div class="app-detail-label">CGPA:</div>
+            <div class="app-detail-value">{app['cgpa'] if app['cgpa'] else 'Not provided'}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="app-detail-row">
+            <div class="app-detail-label">12th Grade %:</div>
+            <div class="app-detail-value">{app['perc_12th'] if app['perc_12th'] else 'Not provided'}%</div>
+        </div>
+        <div class="app-detail-row">
+            <div class="app-detail-label">Languages Known:</div>
+            <div class="app-detail-value">{app['languages'] or 'Not provided'}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 💼 Skills & Experience")
+    
+    st.markdown(f"""
+    <div class="app-detail-row">
+        <div class="app-detail-label">Technical Skills:</div>
+        <div class="app-detail-value">{app['skills'] or 'Not provided'}</div>
+    </div>
+    <div class="app-detail-row">
+        <div class="app-detail-label">Prior Experience:</div>
+        <div class="app-detail-value">{app['experience'] or 'No prior experience'}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("← Back to All Applications"):
+            st.session_state.page = "view_applications"
+            st.rerun()
+    with col2:
+        if st.button("← Back to Dashboard"):
             st.session_state.page = "dashboard"
             st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
 
-# -------------------- ROUTER --------------------
+# ---------------- ROUTER ----------------
 if st.session_state.page == "home":
     home()
 elif st.session_state.page == "register":
@@ -616,3 +1406,7 @@ elif st.session_state.page == "dashboard":
     dashboard()
 elif st.session_state.page == "apply":
     apply()
+elif st.session_state.page == "view_applications":
+    view_applications()
+elif st.session_state.page == "application_detail":
+    application_detail()

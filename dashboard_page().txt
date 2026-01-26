@@ -1,15 +1,37 @@
+import streamlit as st
+from ui_styles import apply_ui, header
+
 def dashboard_page():
+
+    apply_ui()
+    header()
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+
     st.markdown("## 📊 Candidate Dashboard")
 
-    st.write("Welcome,", st.session_state.user[1])
-    st.write("Candidate ID:", st.session_state.user[0])
+    st.write(f"### Welcome, {st.session_state.user[1]}")
+    st.write(f"**Candidate ID:** {st.session_state.user[0]}")
 
-    # TEMP: eligibility status (later DB-la store pannalaam)
-    eligible = True  # demo purpose
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Temporary eligibility (later DB logic add pannalaam)
+    eligible = True
 
     if eligible:
         st.success("✅ Eligible for PM Internship Scheme")
-        if st.button("📝 Apply for Internship"):
+
+        if st.button("📝 Apply for Internship", use_container_width=True):
             st.session_state.page = "apply"
+            st.rerun()
     else:
         st.error("❌ Not Eligible as per PM Internship rules")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.user = None
+        st.session_state.page = "home"
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)

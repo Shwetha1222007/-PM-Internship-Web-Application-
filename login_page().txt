@@ -1,3 +1,10 @@
+apply_ui()
+header()
+
+def login():
+    apply_dark_theme()
+    render_header()
+
 def login_page():
     st.markdown("## 🔐 Login")
 
