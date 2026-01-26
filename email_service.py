@@ -38,11 +38,11 @@ def send_hr_announcement(candidate_profile, application_data):
 
             <div style="margin-top: 35px; text-align: center;">
                 <p style="font-size: 14px; color: #666;">Evaluate and take immediate action on this application:</p>
-                <a href="http://localhost:8501/?action=accept&cid={candidate_profile['id']}&comp={application_data['company']}" 
+                <a href="http://localhost:8501/?action=accept&aid={application_data['app_id']}" 
                    style="background-color: #28a745; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 15px; display: inline-block;">
                    APPROVE APPLICATION
                 </a>
-                <a href="http://localhost:8501/?action=reject&cid={candidate_profile['id']}&comp={application_data['company']}" 
+                <a href="http://localhost:8501/?action=reject&aid={application_data['app_id']}" 
                    style="background-color: #dc3545; color: white; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
                    DECLINE PROFILE
                 </a>
@@ -101,5 +101,41 @@ def _send_mail(receiver, subject, content, is_html=False):
         server.login(SENDER_EMAIL, APP_PASSWORD)
         server.send_message(msg)
         server.quit()
+        return True
     except Exception as e:
         print(f"SMTP Error: {e}")
+        raise e # Explicitly raise to be caught by the UI
+
+def send_candidate_confirmation(candidate_profile, application_data):
+    """
+    Sends a confirmation email to the candidate after they apply.
+    """
+    subject = f"APPLICATION RECEIVED: PM Internship Scheme - {application_data['company']}"
+    
+    html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="background-color: #00296b; padding: 20px; text-align: center; color: white;">
+            <h2 style="margin: 0;">PM Internship Scheme Confirmation</h2>
+        </div>
+        <div style="padding: 30px; border: 1px solid #e1e4e8; border-top: none;">
+            <p>Dear {candidate_profile['name']},</p>
+            <p>Your application for the <strong>{application_data['company']}</strong> internship has been successfully received.</p>
+            
+            <h3 style="color: #00296b;">Application Details:</h3>
+            <ul>
+                <li><strong>Sector:</strong> {application_data['sector']}</li>
+                <li><strong>Reference ID:</strong> PMIS-{str(candidate_profile['id']).zfill(6)}</li>
+                <li><strong>Status:</strong> Applied (Under Review)</li>
+            </ul>
+
+            <p>Your profile has been forwarded to the HR department of <strong>{application_data['company']}</strong>. You will receive another update once they review your application.</p>
+
+            <p>You can track your application status anytime by logging into your dashboard.</p>
+
+            <p style="margin-top: 30px;">Best regards,<br><strong>PM Internship Support Team</strong></p>
+        </div>
+    </body>
+    </html>
+    """
+    _send_mail(candidate_profile['email'], subject, html, is_html=True)

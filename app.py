@@ -2,7 +2,7 @@
 import streamlit as st
 from database import create_tables, get_connection
 from auth import register_user, login_user
-from email_service import send_hr_announcement, send_update_to_candidate
+from email_service import send_hr_announcement, send_update_to_candidate, send_candidate_confirmation
 import datetime
 
 st.set_page_config(
@@ -633,16 +633,20 @@ def render_header():
 def handle_query_params():
     """
     Handles HR actions (Accept/Reject) via URL query parameters.
-    Expected format: /?action=accept&cid=123&comp=Google
+    New format: /?action=accept&aid=123
+    Old format fallback: /?action=accept&cid=123&comp=Google
     """
     try:
         # Get query parameters
         qp = st.query_params
         action = qp.get("action")
+        app_id = qp.get("aid")
+        
+        # Fallback to old parameters if aid is missing
         user_id = qp.get("cid")
         company = qp.get("comp")
 
-        if action and user_id and company:
+        if action and (app_id or (user_id and company)):
             # Validate action
             if action not in ["accept", "reject"]:
                 return
@@ -652,11 +656,24 @@ def handle_query_params():
             st.markdown(f'<div class="card-title">HR Administrative Action</div>', unsafe_allow_html=True)
             
             conn = get_connection()
+            cursor = conn.cursor()
             
-            # Verify user exists
-            user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-            if not user:
-                st.error("❌ User not found.")
+            # Fetch application and user data
+            if app_id:
+                app = conn.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
+                if not app:
+                    st.error("❌ Application not found.")
+                    conn.close()
+                    st.stop()
+                user = conn.execute("SELECT * FROM users WHERE id = ?", (app['user_id'],)).fetchone()
+                target_company = app['company']
+            else:
+                user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+                app = conn.execute("SELECT * FROM applications WHERE user_id = ? AND company = ?", (user_id, company)).fetchone()
+                target_company = company
+
+            if not user or not app:
+                st.error("❌ User or Application not found.")
                 conn.close()
                 st.stop()
 
@@ -665,13 +682,11 @@ def handle_query_params():
             status_color = "#28a745" if new_status == "Selected" else "#dc3545"
 
             # Update Application in DB
-            # Note: Matching by user_id and company since generic link structure was requested
-            cursor = conn.cursor()
             cursor.execute("""
                 UPDATE applications 
                 SET status = ? 
-                WHERE user_id = ? AND company = ?
-            """, (new_status, user_id, company))
+                WHERE id = ?
+            """, (new_status, app['id']))
             
             if cursor.rowcount > 0:
                 conn.commit()
@@ -679,20 +694,20 @@ def handle_query_params():
                 <div style="background: {status_color}; padding: 20px; border-radius: 10px; text-align: center; color: white; margin-bottom: 20px;">
                     <h2>Action: {new_status.upper()}</h2>
                     <p>Candidate: <b>{user['name']}</b></p>
-                    <p>Company: <b>{company}</b></p>
+                    <p>Company: <b>{target_company}</b></p>
                 </div>
                 """, unsafe_allow_html=True)
 
                 # Send Email to Candidate
                 with st.spinner(f"Sending notification email to {user['email']}..."):
                     try:
-                        send_update_to_candidate(user['email'], new_status, company)
+                        send_update_to_candidate(user['email'], new_status, target_company)
                         st.success(f"✅ Notification email successfully sent to candidate.")
                     except Exception as e:
                         st.error(f"⚠️ Database updated, but failed to send email: {e}")
                 
             else:
-                st.warning(f"⚠️ No active application found for {user['name']} at {company}.")
+                st.warning(f"⚠️ Failed to update application status.")
             
             conn.close()
             
@@ -702,7 +717,7 @@ def handle_query_params():
                 st.rerun()
             
             st.markdown('</div>', unsafe_allow_html=True)
-            st.stop() # Stop further execution to show only this result
+            st.stop()
             
     except Exception as e:
         st.error(f"System Error: {e}")
@@ -1045,7 +1060,14 @@ def dashboard():
         st.markdown("### 📑 Recent Applications")
         
         for app in applications:
-            status_color = "#4CAF50" if app['status'] == 'Applied' else "#FF9800"
+            # Better status colors
+            if app['status'] == 'Selected':
+                status_color = "#28a745" # Green
+            elif app['status'] == 'Rejected':
+                status_color = "#dc3545" # Red
+            else:
+                status_color = "#ffb703" # Yellow/Orange for Applied/Pending
+            
             col1, col2 = st.columns([4, 1])
             
             with col1:
@@ -1175,12 +1197,14 @@ def apply():
                 return
             
             conn = get_connection()
-            conn.execute("""
+            cursor = conn.cursor()
+            cursor.execute("""
                 INSERT INTO applications 
                 (user_id, skills, sector, company, location_pref, languages, perc_12th, college_name, cgpa, experience, status) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (st.session_state.user['id'], skills, sector, company, location_pref, 
                   languages, perc_12th, college_name, cgpa, experience, "Applied"))
+            app_id = cursor.lastrowid
             conn.commit()
             conn.close()
             
@@ -1188,9 +1212,10 @@ def apply():
             try:
                 # Prepare data dictionary exactly as expected by strictly typed email service
                 app_data = {
+                    'app_id': app_id, # Added app_id for precise tracking
                     'skills': skills,
                     'sector': sector,
-                    'company': company or 'General Pool', # Ensure company is never empty for the link
+                    'company': company or 'General Pool',
                     'college_name': college_name or 'Not provided',
                     'cgpa': cgpa,
                     'languages': languages or 'Not provided',
@@ -1199,11 +1224,14 @@ def apply():
                 
                 # Show spinner while sending
                 with st.spinner("Submitting application and notifying HR..."):
+                     # Notify HR
                      send_hr_announcement(st.session_state.user, app_data)
+                     # Notify Candidate (The User)
+                     send_candidate_confirmation(st.session_state.user, app_data)
                      
             except Exception as e:
-                print(f"Email Error (non-critical): {e}")
-                # Continue with application submission even if email fails
+                st.warning(f"⚠️ Application stored in database, but there was an issue sending notification emails: {e}")
+                # We still continue because the application is saved in DB
             
             st.success("✅ Application Submitted Successfully!")
             st.balloons()
@@ -1236,7 +1264,12 @@ def view_applications():
     
     if applications:
         for app in applications:
-            status_color = "#4CAF50" if app['status'] == 'Applied' else "#FF9800"
+            if app['status'] == 'Selected':
+                status_color = "#28a745"
+            elif app['status'] == 'Rejected':
+                status_color = "#dc3545"
+            else:
+                status_color = "#ffb703"
             
             col1, col2 = st.columns([4, 1])
             
@@ -1295,7 +1328,12 @@ def application_detail():
         st.rerun()
         return
     
-    status_color = "#4CAF50" if app['status'] == 'Applied' else "#FF9800"
+    if app['status'] == 'Selected':
+        status_color = "#28a745"
+    elif app['status'] == 'Rejected':
+        status_color = "#dc3545"
+    else:
+        status_color = "#ffb703"
     
     st.markdown(f"""
     <div class="app-detail-card">
