@@ -831,44 +831,46 @@ def register():
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
     st.markdown('<div class="card-title">📝 Create Your Account</div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        name = st.text_input("Full Name", placeholder="Enter your full name")
-        phone = st.text_input("Phone Number", placeholder="+91 XXXXXXXXXX")
-        dob = st.date_input("Date of Birth", min_value=datetime.date(1990, 1, 1))
-        district = st.text_input("District", placeholder="Your district")
-    
-    with col2:
-        email = st.text_input("Email Address", placeholder="your.email@example.com")
-        password = st.text_input("Password", type="password", placeholder="Create a strong password")
-        social_category = st.selectbox("Social Category", ["General", "OBC", "MBC", "SC", "ST", "EWS"])
-        rural = st.selectbox("Area Type", ["Urban", "Rural"])
-    
-    aadhaar = st.text_input("Aadhaar Number", placeholder="XXXX-XXXX-XXXX")
-    address = st.text_area("Address", placeholder="Enter your complete address")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        blood_group = st.selectbox("Blood Group", ["Select Blood Group", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"])
-    with col2:
-        bank_account = st.text_input("Bank Account Number", placeholder="11-digit account number", max_chars=11)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    if st.button("✨ CREATE ACCOUNT", use_container_width=True):
-        if not name or not email or not password or blood_group == "Select Blood Group":
-            st.error("⚠️ Please fill in all required fields!")
-        elif bank_account and len(bank_account) != 11:
-            st.error("⚠️ Bank Account Number must be exactly 11 digits!")
-        else:
-            if register_user((name, email, phone, password, str(dob), district, rural, 
-                            social_category, aadhaar, address, blood_group, bank_account)):
-                st.success("✅ Registration Successful! Please login to continue.")
-                st.balloons()
-                st.session_state.page = "login"
-                st.rerun()
+    with st.form("registration_form", clear_on_submit=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("Full Name", placeholder="Enter your full name")
+            phone = st.text_input("Phone Number", placeholder="+91 XXXXXXXXXX")
+            dob = st.date_input("Date of Birth", min_value=datetime.date(1990, 1, 1))
+            district = st.text_input("District", placeholder="Your district")
+        
+        with col2:
+            email = st.text_input("Email Address", placeholder="your.email@example.com")
+            password = st.text_input("Password", type="password", placeholder="Create a strong password")
+            social_category = st.selectbox("Social Category", ["General", "OBC", "MBC", "SC", "ST", "EWS"])
+            rural = st.selectbox("Area Type", ["Urban", "Rural"])
+        
+        aadhaar = st.text_input("Aadhaar Number", placeholder="XXXX-XXXX-XXXX")
+        address = st.text_area("Address", placeholder="Enter your complete address")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            blood_group = st.selectbox("Blood Group", ["Select Blood Group", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"])
+        with col2:
+            bank_account = st.text_input("Bank Account Number", placeholder="11-digit account number", max_chars=11)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        submit_btn = st.form_submit_button("✨ CREATE ACCOUNT", use_container_width=True)
+        
+        if submit_btn:
+            if not name or not email or not password or blood_group == "Select Blood Group":
+                st.error("⚠️ Please fill in all required fields!")
+            elif bank_account and len(bank_account) != 11:
+                st.error("⚠️ Bank Account Number must be exactly 11 digits!")
             else:
-                st.error("❌ Registration failed. Email may already exist.")
+                if register_user((name, email, phone, password, str(dob), district, rural, 
+                                social_category, aadhaar, address, blood_group, bank_account)):
+                    st.success("✅ Registration Successful! Please login to continue.")
+                    st.balloons()
+                    st.session_state.page = "login"
+                    st.rerun()
+                else:
+                    st.error("❌ Registration failed. Email may already exist or there was a database error.")
     
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("← Back to Home"):
@@ -884,26 +886,28 @@ def login():
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
     st.markdown('<div class="card-title">🔐 Welcome Back</div>', unsafe_allow_html=True)
     
-    email = st.text_input("Email Address", placeholder="your.email@example.com")
-    password = st.text_input("Password", type="password", placeholder="Enter your password")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    if st.button("🚀 LOGIN", use_container_width=True):
-        if not email or not password:
-            st.error("⚠️ Please enter both email and password!")
-        else:
-            user = login_user(email, password)
-            if user:
-                st.session_state.user = dict(user)
-                st.success(f"✅ Welcome back, {user['name']}!")
-                st.session_state.page = "dashboard"
-                st.rerun()
+    with st.form("login_form"):
+        email = st.text_input("Email Address", placeholder="your.email@example.com")
+        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        login_btn = st.form_submit_button("🚀 LOGIN", use_container_width=True)
+        
+        if login_btn:
+            if not email or not password:
+                st.error("⚠️ Please enter both email and password!")
             else:
-                st.error("❌ Invalid credentials. Please try again.")
+                user = login_user(email, password)
+                if user:
+                    st.session_state.user = dict(user)
+                    st.success(f"✅ Welcome back, {user['name']}!")
+                    st.session_state.page = "dashboard"
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid credentials. Please try again.")
     
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("← Back to Home"):
+    if st.button("← Back to Home", key="back_home_login"):
         st.session_state.page = "home"
         st.rerun()
     
