@@ -44,14 +44,21 @@ def login_user(email, password):
     if user:
         stored_password = user['password']
         
-        # Check if hashed (starts with $2b$)
-        if stored_password.startswith("$2b$"):
+        try:
+            # Try bcrypt verification first
             if bcrypt.checkpw(password_plain.encode('utf-8'), stored_password.encode('utf-8')):
                 verified_user = user
-        else:
-            # Legacy plain text check
+            else:
+                # Fallback to plain text check (for legacy or specifically set passwords)
+                if stored_password == password_plain:
+                    # Upgrade to hash automatically
+                    new_hash = bcrypt.hashpw(password_plain.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                    cur.execute("UPDATE users SET password = ? WHERE id = ?", (new_hash, user['id']))
+                    conn.commit()
+                    verified_user = user
+        except Exception:
+            # If bcrypt.checkpw fails (e.g. invalid salt), fallback to plain text check
             if stored_password == password_plain:
-                # Upgrade to hash
                 new_hash = bcrypt.hashpw(password_plain.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 cur.execute("UPDATE users SET password = ? WHERE id = ?", (new_hash, user['id']))
                 conn.commit()
