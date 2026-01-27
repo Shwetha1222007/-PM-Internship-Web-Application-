@@ -937,7 +937,11 @@ def login():
                 if user:
                     st.session_state.user = dict(user)
                     st.success(f"✅ Welcome back, {user['name']}!")
-                    st.session_state.page = "dashboard"
+                    role = user.get('role', 'student')
+                    if role == 'admin':
+                        st.session_state.page = "employer_dashboard"
+                    else:
+                        st.session_state.page = "dashboard"
                     st.rerun()
                 else:
                     st.error("❌ Invalid credentials. Please try again.")
@@ -1470,6 +1474,14 @@ def application_detail():
 
 # ---------------- EMPLOYER DASHBOARD ----------------
 def employer_dashboard():
+    # Security Check
+    if not st.session_state.user or st.session_state.user.get('role') != 'admin':
+        st.error("⛔ Access Denied: Admin privileges required.")
+        st.session_state.page = "home"
+        if st.button("Return to Home"):
+            st.rerun()
+        return
+
     render_header()
     
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -1503,6 +1515,36 @@ def employer_dashboard():
     candidates_list = [dict(row) for row in applicants]
     
     st.markdown(f"**Total Applicants:** {len(candidates_list)}")
+
+    # Manage Applications Section
+    with st.expander("📋 View & Manage All Applications", expanded=False):
+        if candidates_list:
+            
+            # Headers
+            c1, c2, c3, c4 = st.columns([1, 2, 2, 1])
+            c1.markdown("**Cand. ID**")
+            c2.markdown("**Name**")
+            c3.markdown("**Email**")
+            c4.markdown("**Action**")
+            
+            for app in candidates_list:
+                c1, c2, c3, c4 = st.columns([1, 2, 2, 1])
+                c1.write(f"#{app['user_id']}") 
+                c2.write(app['name'])
+                c3.write(app['email'])
+                
+                # Delete Button
+                if c4.button("🗑️ Delete", key=f"del_{app['id']}"):
+                    conn = get_connection()
+                    conn.execute("DELETE FROM applications WHERE id = ?", (app['id'],))
+                    conn.commit()
+                    conn.close()
+                    st.toast(f"Deleted application for {app['name']}")
+                    st.rerun()
+        else:
+            st.info("No applications to manage.")
+    
+    st.markdown("---")
     
     if st.button("🚀 Run AI Allocation Engine", use_container_width=True):
         if not candidates_list:
