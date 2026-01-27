@@ -24,7 +24,12 @@ if user:
     print(f"Name: {user['name']}")
     print(f"Email: {user['email']}")
     print(f"Password hash: {user['password'][:40]}...")
-    print(f"Role: {user.get('role', 'N/A')}")
+    
+    try:
+        role = user['role']
+        print(f"Role: {role}")
+    except:
+        print(f"Role: N/A")
     
     # Test with some common passwords
     test_passwords = [
