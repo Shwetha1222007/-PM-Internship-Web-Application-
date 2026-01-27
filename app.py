@@ -1464,13 +1464,19 @@ def application_detail():
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("← Back to All Applications"):
-            st.session_state.page = "view_applications"
-            st.rerun()
+        if st.session_state.user.get('role') == 'admin':
+             if st.button("← Back to Admin Dashboard"):
+                st.session_state.page = "employer_dashboard"
+                st.rerun()
+        else:
+            if st.button("← Back to All Applications"):
+                st.session_state.page = "view_applications"
+                st.rerun()
     with col2:
-        if st.button("← Back to Dashboard"):
-            st.session_state.page = "dashboard"
-            st.rerun()
+        if st.session_state.user.get('role') != 'admin':
+            if st.button("← Back to Dashboard"):
+                st.session_state.page = "dashboard"
+                st.rerun()
 
 # ---------------- EMPLOYER DASHBOARD ----------------
 def employer_dashboard():
@@ -1489,6 +1495,7 @@ def employer_dashboard():
     
     # Company Selection
     company_options = [
+        "All Companies",
         "Tata Consultancy Services (TCS)", "Infosys Ltd.", "Wipro Ltd.", "HCL Technologies Ltd.", 
         "Tech Mahindra Ltd.", "Reliance Industries Ltd.", "HDFC Bank Ltd.", "ICICI Bank Ltd.", "Mahindra & Mahindra Ltd."
     ]
@@ -1501,50 +1508,122 @@ def employer_dashboard():
     
     conn = get_connection()
     
-    # Fetch all applicants for this company
-    # We join with users to get rural/social category info
-    query = """
-        SELECT a.*, u.name, u.email, u.rural, u.social_category, u.district 
-        FROM applications a 
-        JOIN users u ON a.user_id = u.id 
-        WHERE a.company = ? AND a.status = 'Applied'
-    """
-    applicants = conn.execute(query, (selected_company,)).fetchall()
+    # Fetch applicants
+    if selected_company == "All Companies":
+        query = """
+            SELECT a.*, u.name, u.email, u.rural, u.social_category, u.district 
+            FROM applications a 
+            JOIN users u ON a.user_id = u.id 
+        """
+        applicants = conn.execute(query).fetchall()
+    else:
+        query = """
+            SELECT a.*, u.name, u.email, u.rural, u.social_category, u.district 
+            FROM applications a 
+            JOIN users u ON a.user_id = u.id 
+            WHERE a.company = ?
+        """
+        applicants = conn.execute(query, (selected_company,)).fetchall()
     conn.close()
     
     candidates_list = [dict(row) for row in applicants]
     
-    st.markdown(f"**Total Applicants:** {len(candidates_list)}")
+    # Statistics
+    total_apps = len(candidates_list)
+    pending_apps = len([a for a in candidates_list if a['status'] == 'Applied'])
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Applications", total_apps)
+    col2.metric("Pending Review", pending_apps)
+    col3.metric("Positions Open", "5") # Mock Data
 
     # Manage Applications Section
-    with st.expander("📋 View & Manage All Applications", expanded=False):
-        if candidates_list:
-            
-            # Headers
-            c1, c2, c3, c4 = st.columns([1, 2, 2, 1])
-            c1.markdown("**Cand. ID**")
-            c2.markdown("**Name**")
-            c3.markdown("**Email**")
-            c4.markdown("**Action**")
-            
-            for app in candidates_list:
-                c1, c2, c3, c4 = st.columns([1, 2, 2, 1])
-                c1.write(f"#{app['user_id']}") 
+    st.markdown("### 📋 Application Management")
+    
+    # Filters
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        search_query = st.text_input("🔍 Search by Candidate ID, Name or Email", placeholder="Type to search...")
+    with col2:
+        filter_status = st.selectbox("Filter Status", ["All", "Applied", "Selected", "Rejected"])
+
+    # Filter Logic
+    filtered_list = candidates_list
+    if filter_status != "All":
+        filtered_list = [a for a in filtered_list if a['status'] == filter_status]
+    
+    if search_query:
+        query = search_query.lower()
+        filtered_list = [a for a in filtered_list if 
+                        query in str(a['user_id']).lower() or 
+                        query in a['name'].lower() or 
+                        query in a['email'].lower()]
+    
+    if filtered_list:
+        # Table Header
+        h1, h2, h3, h4, h5 = st.columns([0.5, 1.5, 2, 1, 2])
+        h1.markdown("**ID**")
+        h2.markdown("**Name**")
+        h3.markdown("**Email**")
+        h4.markdown("**Status**")
+        h5.markdown("**Actions**")
+        st.divider()
+        
+        # Rendering actual rows with Streamlit columns for interactivity
+        for app in filtered_list:
+            with st.container():
+                c1, c2, c3, c4, c5 = st.columns([0.5, 1.5, 2, 1, 2])
+                c1.write(f"#{app['user_id']}")
                 c2.write(app['name'])
                 c3.write(app['email'])
                 
-                # Delete Button
-                if c4.button("🗑️ Delete", key=f"del_{app['id']}"):
-                    conn = get_connection()
-                    conn.execute("DELETE FROM applications WHERE id = ?", (app['id'],))
-                    conn.commit()
-                    conn.close()
-                    st.toast(f"Deleted application for {app['name']}")
-                    st.rerun()
-        else:
-            st.info("No applications to manage.")
-    
-    st.markdown("---")
+                status_color = "orange"
+                if app['status'] == 'Selected': status_color = "green"
+                if app['status'] == 'Rejected': status_color = "red"
+                c4.markdown(f":{status_color}[{app['status']}]")
+                
+                with c5:
+                    # Action Buttons Grid
+                    col_view, col_approve, col_reject, col_del = st.columns([1, 1, 1, 1])
+                    
+                    with col_view:
+                        if st.button("📄", key=f"view_{app['id']}", help="View Details", use_container_width=True):
+                            st.session_state.selected_app_id = app['id']
+                            st.session_state.page = "application_detail"
+                            st.rerun()
+
+                    if app['status'] == 'Applied':
+                        with col_approve:
+                            if st.button("✅", key=f"acc_{app['id']}", help="Approve Application", use_container_width=True):
+                                conn = get_connection()
+                                conn.execute("UPDATE applications SET status = 'Selected' WHERE id = ?", (app['id'],))
+                                conn.commit()
+                                conn.close()
+                                st.toast(f"✅ Approved {app['name']}")
+                                st.rerun()
+                        
+                        with col_reject:
+                            if st.button("❌", key=f"rej_{app['id']}", help="Reject Application", use_container_width=True):
+                                conn = get_connection()
+                                conn.execute("UPDATE applications SET status = 'Rejected' WHERE id = ?", (app['id'],))
+                                conn.commit()
+                                conn.close()
+                                st.toast(f"❌ Rejected {app['name']}")
+                                st.rerun()
+                    else:
+                        # Placeholders so delete button stays aligned
+                        col_approve.write("")
+                        col_reject.write("")
+
+                    with col_del:
+                        if st.button("🗑️", key=f"del_{app['id']}", help="Delete Application", use_container_width=True):
+                            conn = get_connection()
+                            conn.execute("DELETE FROM applications WHERE id = ?", (app['id'],))
+                            conn.commit()
+                            conn.close()
+                            st.toast(f"🗑️ Deleted {app['name']}")
+                            st.rerun()
+                st.markdown("---")
     
     if st.button("🚀 Run AI Allocation Engine", use_container_width=True):
         if not candidates_list:
