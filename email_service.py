@@ -35,8 +35,9 @@ def send_hr_announcement(candidate_profile, application_data):
                 <tr><td style="padding: 10px; font-weight: bold;">Academic CGPA</td><td style="padding: 10px;">{application_data['cgpa']}</td></tr>
                 <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">Key Skills</td><td style="padding: 10px; background: #fffdf5;">{application_data['skills']}</td></tr>
                 <tr><td style="padding: 10px; font-weight: bold;">Languages</td><td style="padding: 10px;">{application_data['languages']}</td></tr>
-                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">Experience</td><td style="padding: 10px; background: #f8faff;">{application_data['experience']}</td></tr>
-                <tr><td style="padding: 10px; font-weight: bold;">Rural Candidate</td><td style="padding: 10px;">{candidate_profile['rural']}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold;">Experience</td><td style="padding: 10px;">{application_data['experience']}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">Rural Candidate</td><td style="padding: 10px; background: #f8faff;">{candidate_profile['rural']}</td></tr>
+                <tr><td style="padding: 10px; font-weight: bold;">Social Category</td><td style="padding: 10px;">{candidate_profile['social_category']}</td></tr>
             </table>
 
             <div style="margin-top: 35px; text-align: center;">

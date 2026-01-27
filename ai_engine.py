@@ -3,7 +3,8 @@ def ai_filter_candidates(candidates_list, requirements):
     AI Filtering Logic:
     1. Calculate scores based on Skills match, CGPA, and Experience.
     2. Rural candidates get a priority weight.
-    3. Ensure at least 20% representation for Rural candidates in the result.
+    3. Social Category candidates (SC, ST, OBC, MBC) get a priority weight.
+    4. Select top 5 candidates.
     """
     scored = []
     
@@ -28,28 +29,25 @@ def ai_filter_candidates(candidates_list, requirements):
         is_rural = cand.get('rural') == 'Yes' or cand.get('rural_urban') == 'Rural'
         if is_rural:
             score += 20
+        
+        # Social Category Priority Weight
+        # "SC", "ST", "OBC", "MBC", "BC"
+        social_category = cand.get('social_category', '').upper().replace('.', '')
+        is_reserved = social_category in ['SC', 'ST', 'OBC', 'MBC', 'BC', 'MBC/DNC']
+        if is_reserved:
+            score += 20
             
-        scored.append({'data': cand, 'score': score, 'is_rural': is_rural})
+        scored.append({'data': cand, 'score': score, 'is_rural': is_rural, 'is_reserved': is_reserved})
 
     # Sort by score
     scored_sorted = sorted(scored, key=lambda x: x['score'], reverse=True)
     
-    # Selection algorithm with quota logic
-    shortlisted = []
-    rural_count = 0
-    quota_needed = 2 if len(candidates_list) >= 10 else 1
+    # Selection algorithm: Select Top 5
+    # Since we added weights for Rural and Social Category, they will naturally bubble up.
+    # We strictly limit to 5 as per "5 offers" constraint.
     
-    # First pass: take top scores naturally
-    preliminary = scored_sorted[:max(quota_needed, 5)]
-    for item in preliminary:
-        shortlisted.append(item['data'])
-        if item['is_rural']:
-            rural_count += 1
-            
-    # Second pass: ensure rural quota if not met
-    if rural_count < quota_needed:
-        remaining_rural = [x for x in scored_sorted[len(shortlisted):] if x['is_rural']]
-        for i in range(min(len(remaining_rural), quota_needed - rural_count)):
-            shortlisted.append(remaining_rural[i]['data'])
-            
-    return shortlisted
+    offer_limit = 5
+    selected_entries = scored_sorted[:offer_limit]
+    
+    # Return the full structure so we can show scores in UI
+    return selected_entries

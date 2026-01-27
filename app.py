@@ -4,6 +4,7 @@ import sys
 from database import create_tables, get_connection
 from auth import register_user, login_user
 from email_service import send_hr_announcement, send_update_to_candidate, send_candidate_confirmation
+from ai_engine import ai_filter_candidates
 
 
 import datetime
@@ -821,6 +822,11 @@ def home():
             if st.button("📝 REGISTER", use_container_width=True):
                 st.session_state.page = "register"
                 st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🏢 EMPLOYER / ADMIN LOGIN", use_container_width=False):
+        st.session_state.page = "employer_dashboard"
+        st.rerun()
     
     # Footer
     st.markdown("""
@@ -988,9 +994,17 @@ def dashboard():
                     <span class="profile-info-icon">🏠</span>
                     <span style="font-size: 12px;">{user['address'] or 'Not provided'}</span>
                 </div>
-                 <div class="profile-info">
+                <div class="profile-info">
                     <span class="profile-info-icon">🏦</span>
                     <span>{user['bank_account'] or 'Not provided'}</span>
+                </div>
+                <div class="profile-info">
+                    <span class="profile-info-icon">🏷️</span>
+                    <span>{user['social_category'] or 'Not provided'}</span>
+                </div>
+                 <div class="profile-info">
+                    <span class="profile-info-icon">🏞️</span>
+                    <span>{user['rural'] or 'Not provided'}</span>
                 </div>
             </div>
         </div>
@@ -1454,6 +1468,113 @@ def application_detail():
             st.session_state.page = "dashboard"
             st.rerun()
 
+# ---------------- EMPLOYER DASHBOARD ----------------
+def employer_dashboard():
+    render_header()
+    
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">🏢 Employer / Admin Portal</div>', unsafe_allow_html=True)
+    
+    # Company Selection
+    company_options = [
+        "Tata Consultancy Services (TCS)", "Infosys Ltd.", "Wipro Ltd.", "HCL Technologies Ltd.", 
+        "Tech Mahindra Ltd.", "Reliance Industries Ltd.", "HDFC Bank Ltd.", "ICICI Bank Ltd.", "Mahindra & Mahindra Ltd."
+    ]
+    
+    selected_company = st.selectbox("Select Company to Manage", company_options)
+    
+    # Requirement Definition
+    st.markdown("### 🎯 Role Requirements")
+    req_skills = st.text_input("Required Skills (comma separated)", value="Python, Data Analysis, Communication, Teamwork")
+    
+    conn = get_connection()
+    
+    # Fetch all applicants for this company
+    # We join with users to get rural/social category info
+    query = """
+        SELECT a.*, u.name, u.email, u.rural, u.social_category, u.district 
+        FROM applications a 
+        JOIN users u ON a.user_id = u.id 
+        WHERE a.company = ? AND a.status = 'Applied'
+    """
+    applicants = conn.execute(query, (selected_company,)).fetchall()
+    conn.close()
+    
+    candidates_list = [dict(row) for row in applicants]
+    
+    st.markdown(f"**Total Applicants:** {len(candidates_list)}")
+    
+    if st.button("🚀 Run AI Allocation Engine", use_container_width=True):
+        if not candidates_list:
+            st.warning("No pending applicants found for this company.")
+        else:
+            # Run the AI
+            requirements = {'skills': req_skills}
+            
+            # This returns the wrapper objects with scores
+            ranked_candidates = ai_filter_candidates(candidates_list, requirements)
+            
+            st.markdown("### 🏆 Top 5 Selected Candidates")
+            st.info("ℹ️ Selection Logic: Merit + Rural Preference (+20) + Social Category Preference (+20)")
+            
+            for rank, item in enumerate(ranked_candidates, 1):
+                cand = item['data']
+                score = item['score']
+                is_rural = item['is_rural']
+                is_reserved = item['is_reserved']
+                
+                # Badges
+                badges = []
+                if is_rural: badges.append("🏞️ Rural (+20)")
+                if is_reserved: badges.append("🏷️ Social Category (+20)")
+                
+                badges_html = " ".join([f"<span style='background:#ffb703;color:black;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;'>{b}</span>" for b in badges])
+                
+                st.markdown(f"""
+                <div class="app-detail-card" style="border-left: 5px solid #28a745;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <h3 style="margin: 0; color: #fff;">#{rank} {cand['name']}</h3>
+                            <p style="color: #b8b8b8; margin: 5px 0;">{cand['email']} | {cand['district']}</p>
+                            <p><b>Skills:</b> {cand['skills']}</p>
+                            <div style="margin-top: 10px;">{badges_html}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 24px; font-weight: 800; color: #ffb703;">{score}</div>
+                            <div style="font-size: 12px; color: #666;">AI Score</div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            # Waiting List
+            # We assume candidates not in the returned list (if we passed all and it returned subset)
+            # But ai_filter returns top 5.
+            # We can't easily see the others unless we modify ai_filter to return all. 
+            # But for this requirement "5 offers", showing top 5 is key.
+            
+            if st.button("✅ Confirm Allocations & Send Offers"):
+                conn = get_connection()
+                count = 0
+                for item in ranked_candidates:
+                    cand = item['data']
+                    # Update DB
+                    conn.execute("UPDATE applications SET status = 'Selected' WHERE id = ?", (cand['id'],))
+                    # Send Email
+                    send_update_to_candidate(cand['email'], "Selected", selected_company)
+                    count += 1
+                conn.commit()
+                conn.close()
+                st.success(f"🎉 Offers sent to {count} candidates!")
+                st.balloons()
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Home"):
+        st.session_state.page = "home"
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # ---------------- ROUTER ----------------
 if st.session_state.page == "home":
     home()
@@ -1469,3 +1590,5 @@ elif st.session_state.page == "view_applications":
     view_applications()
 elif st.session_state.page == "application_detail":
     application_detail()
+elif st.session_state.page == "employer_dashboard":
+    employer_dashboard()
