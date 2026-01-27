@@ -936,8 +936,8 @@ def login():
                 user = login_user(email, password)
                 if user:
                     st.session_state.user = dict(user)
-                    st.success(f"✅ Welcome back, {user['name']}!")
-                    role = user.get('role', 'student')
+                    st.success(f"✅ Welcome back, {st.session_state.user['name']}!")
+                    role = st.session_state.user.get('role', 'student')
                     if role == 'admin':
                         st.session_state.page = "employer_dashboard"
                     else:
