@@ -1,0 +1,235 @@
+================================================================================
+ALL USERS IN DATABASE
+================================================================================
+
+ID: 1
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$kCttuiGgfSkbVkmcix7tL.3...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 2
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$qLBKFVdS.pJIR8Uvm7gus.4...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 3
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$iTFu02cHGFXsQyymqIvdJuw...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 4
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$oAwTcU5EFKHLyl5DESvf.eD...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 5
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$QhOHkcyhRknfjxodobXrA.v...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 6
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$XZTIJusNbk5Pxw1DB8Sodu5...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 7
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$jzp.LKKzjha7S5QFvWwQN.0...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 8
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$33xaqYg9EaM3AHmcndBOVe5...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 9
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$QzLNKqdzZ00DT/xGbvn6u.Z...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 10
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$dlF1.CXBsKRPPmMskOMbfee...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 11
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$fUifQm9tv3QufUnlePRO6Of...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 12
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$W7Z7VvkA2I7snXAwkfr/6.0...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 13
+Name: swetha
+Email: 24uam151swetha@kgkite.ac.in
+Password hash (first 30 chars): $2b$12$YjLC56Si6UisGKv/5uWFI.M...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 14
+Name: swetha
+Email: 24uam151swetha@kgkite.ac.in
+Password hash (first 30 chars): $2b$12$ncukU23IddKfb2cGK4yGq.N...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 15
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$RsFEdQ.tBG.i66SqqPNDneM...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 16
+Name: Shwetha
+Email: shwetha12206@gmail.com
+Password hash (first 30 chars): $2b$12$9ZU3wnyA.cs1JE7Xuhe.U.z...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 17
+Name: Shwetha
+Email: 
+Password hash (first 30 chars): $2b$12$YgHLgsPEpJLCRlP.u8O1juS...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 18
+Name: Test User
+Email: test@example.com
+Password hash (first 30 chars): $2b$12$vXYR1CL4LXFB/yGD./S8rOY...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 19
+Name: andal
+Email: andal3222@gmail.com
+Password hash (first 30 chars): $2b$12$onkJU.zkykrr6ZaWta8Csef...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 20
+Name: andal
+Email: andal3222@gmail.com
+Password hash (first 30 chars): $2b$12$MyW.uD2Gi.lAgrkGXlCxpu3...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 21
+Name: Administrator
+Email: admin@internship.gov.in
+Password hash (first 30 chars): $2b$12$9gG0TSMiio2NUfNO8HwjB.5...
+Password length: 60
+Valid bcrypt hash: True
+Role: admin
+--------------------------------------------------------------------------------
+
+ID: 22
+Name: shwetha
+Email: shwethasrinivasan368@gmail.com
+Password hash (first 30 chars): $2b$12$tMAdN6gIsBlYrZ3IHiKxNe8...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 23
+Name: shwetha
+Email: shwethasrinivasan368@gmail.com
+Password hash (first 30 chars): $2b$12$tSRbJ3x/hM/WSUySfL1K6.X...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 24
+Name: shwetha
+Email: shwetha
+Password hash (first 30 chars): $2b$12$ujIGrN1IR4WtvtRJY/R4UuV...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+ID: 25
+Name: shwetha
+Email: shwethasrinivasan368@gmail.com
+Password hash (first 30 chars): $2b$12$f2QC7GNnIqmXeIDNlsKTouR...
+Password length: 60
+Valid bcrypt hash: True
+Role: student
+--------------------------------------------------------------------------------
+
+================================================================================
+CHECKING FOR: shwethasrinivasan368@gmail.com
+================================================================================
+User found!
+Name: shwetha
+Password is valid: True
