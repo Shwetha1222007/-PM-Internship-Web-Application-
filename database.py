@@ -68,6 +68,7 @@ def create_tables():
     add_column_if_missing('users', 'address', 'TEXT')
     add_column_if_missing('users', 'blood_group', 'TEXT')
     add_column_if_missing('users', 'bank_account', 'TEXT')
+    add_column_if_missing('users', 'role', "TEXT DEFAULT 'student'")
 
     # Evolution for APPLICATIONS
     add_column_if_missing('applications', 'languages', 'TEXT')
@@ -77,8 +78,23 @@ def create_tables():
     add_column_if_missing('applications', 'experience', 'TEXT')
     add_column_if_missing('applications', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
 
+    seed_admin(cur)
+
     conn.commit()
     conn.close()
+
+def seed_admin(cur):
+    # Check if admin exists
+    cur.execute("SELECT * FROM users WHERE role = 'admin'")
+    admin = cur.fetchone()
+    if not admin:
+        # Create admin user
+        # You might want to use a more secure password in production/env vars
+        cur.execute("""
+            INSERT INTO users (name, email, password, role)
+            VALUES (?, ?, ?, ?)
+        """, ("Administrator", "admin@internship.gov.in", "admin123", "admin"))
+        print("✅ Admin user created: admin@internship.gov.in / admin123")
 
 if __name__ == "__main__":
     create_tables()
