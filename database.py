@@ -83,18 +83,31 @@ def create_tables():
     conn.commit()
     conn.close()
 
+
 def seed_admin(cur):
+    import bcrypt
+    
     # Check if admin exists
     cur.execute("SELECT * FROM users WHERE role = 'admin'")
     admin = cur.fetchone()
+    
+    # Static hashed password for 'admin123'
+    # Generated with bcrypt.hashpw(b"admin123", bcrypt.gensalt())
+    hashed_password = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
+    
     if not admin:
         # Create admin user
-        # You might want to use a more secure password in production/env vars
         cur.execute("""
             INSERT INTO users (name, email, password, role)
             VALUES (?, ?, ?, ?)
-        """, ("Administrator", "admin@internship.gov.in", "admin123", "admin"))
+        """, ("Administrator", "admin@internship.gov.in", hashed_password, "admin"))
         print("✅ Admin user created: admin@internship.gov.in / admin123")
+    else:
+        # Update admin password to hashed version if it looks like plain text
+        stored_password = admin['password']
+        if not stored_password.startswith("$2b$"):
+             cur.execute("UPDATE users SET password = ? WHERE id = ?", (hashed_password, admin['id']))
+             print("✅ Admin password upgraded to hash.")
 
 if __name__ == "__main__":
     create_tables()
