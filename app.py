@@ -824,9 +824,17 @@ def home():
                 st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🏢 EMPLOYER / ADMIN LOGIN", use_container_width=False):
-        st.session_state.page = "employer_dashboard"
-        st.rerun()
+    
+    # Additional login options
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if st.button("🏢 EMPLOYER / ADMIN LOGIN", use_container_width=True):
+            st.session_state.page = "employer_dashboard"
+            st.rerun()
+    with col_b:
+        if st.button("👔 HR LOGIN", use_container_width=True):
+            st.session_state.page = "hr_login"
+            st.rerun()
     
     # Footer
     st.markdown("""
@@ -1696,6 +1704,383 @@ def employer_dashboard():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
+
+# ---------------- HR LOGIN ----------------
+def hr_login_page():
+    from hr_auth import hr_login
+    
+    render_header()
+    
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">🏢 HR Portal Login</div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 30px; color: #b8b8b8;">
+        <p>Welcome to the HR Dashboard. Please login with your company credentials.</p>
+        <p style="font-size: 12px; color: #666;">Format: 1208_companyname_HR</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.form("hr_login_form"):
+        username = st.text_input("HR Username", placeholder="1208_zoho_HR")
+        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        login_btn = st.form_submit_button("🚀 LOGIN AS HR", use_container_width=True)
+        
+        if login_btn:
+            if not username or not password:
+                st.error("⚠️ Please enter both username and password!")
+            else:
+                hr_user = hr_login(username, password)
+                if hr_user:
+                    st.session_state.hr_user = hr_user
+                    st.success(f"✅ Welcome, {hr_user['company']} HR!")
+                    st.session_state.page = "hr_dashboard"
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid credentials. Please try again.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Back to Home", key="back_home_hr_login"):
+        st.session_state.page = "home"
+        st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ---------------- HR DASHBOARD ----------------
+def hr_dashboard():
+    from hr_auth import get_company_info, update_seat_allocation
+    from ai_engine import ai_filter_candidates, get_top_candidates
+    import datetime
+    
+    # Check if HR is logged in
+    if 'hr_user' not in st.session_state or not st.session_state.hr_user:
+        st.warning("⚠️ Please login as HR first")
+        st.session_state.page = "hr_login"
+        st.rerun()
+        return
+    
+    hr_user = st.session_state.hr_user
+    company_name = hr_user['company']
+    
+    render_header()
+    
+    # Header with company info
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); 
+                padding: 30px; border-radius: 20px; margin-bottom: 30px; 
+                border: 2px solid #ffb703; box-shadow: 0 10px 40px rgba(255, 183, 3, 0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 style="color: #ffb703; margin: 0; font-size: 32px;">🏢 {company_name} - HR Dashboard</h1>
+                <p style="color: #b8b8b8; margin: 10px 0 0 0;">Welcome, {hr_user['username']}</p>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 14px; color: #666;">Logged in as HR</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Get company info
+    company_info = get_company_info(company_name)
+    
+    if company_info:
+        # Display seat allocation info
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""
+            <div class="stat-card" style="border-top: 4px solid #28a745;">
+                <div class="stat-number">{company_info['total_seats']}</div>
+                <div class="stat-label">Total Seats</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+            <div class="stat-card" style="border-top: 4px solid #dc3545;">
+                <div class="stat-number">{company_info['allocated_seats']}</div>
+                <div class="stat-label">Allocated Seats</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""
+            <div class="stat-card" style="border-top: 4px solid #ffb703;">
+                <div class="stat-number">{company_info['available_seats']}</div>
+                <div class="stat-label">Available Seats</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Tabs for different sections
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 All Applications", "🤖 AI Filtered Candidates", "✅ Selected", "⏰ Response Tracking"])
+    
+    # Get all applications for this company
+    conn = get_connection()
+    
+    # Tab 1: All Applications
+    with tab1:
+        st.markdown("### 📋 All Applications for " + company_name)
+        
+        applications = conn.execute("""
+            SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category
+            FROM applications a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.company = ?
+            ORDER BY a.created_at DESC
+        """, (company_name,)).fetchall()
+        
+        if not applications:
+            st.info("ℹ️ No applications received yet.")
+        else:
+            st.success(f"📊 Total Applications: **{len(applications)}**")
+            
+            for app in applications:
+                status_color = {
+                    'Applied': '#ffc107',
+                    'Selected': '#28a745',
+                    'Rejected': '#dc3545',
+                    'Pending': '#17a2b8'
+                }.get(app['status'], '#666')
+                
+                st.markdown(f"""
+                <div class="app-detail-card" style="border-left: 5px solid {status_color};">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0; color: #fff;">{app['name']}</h3>
+                            <p style="color: #b8b8b8; margin: 5px 0;">{app['email']} | {app['phone']}</p>
+                            <div style="margin-top: 10px;">
+                                <span style="background: rgba(255,183,3,0.2); padding: 5px 10px; border-radius: 5px; font-size: 12px; color: #ffb703; margin-right: 10px;">
+                                    📍 {app['district']}
+                                </span>
+                                <span style="background: rgba(255,183,3,0.2); padding: 5px 10px; border-radius: 5px; font-size: 12px; color: #ffb703; margin-right: 10px;">
+                                    🎓 CGPA: {app['cgpa']}
+                                </span>
+                                <span style="background: rgba(255,183,3,0.2); padding: 5px 10px; border-radius: 5px; font-size: 12px; color: #ffb703;">
+                                    {app['rural']}
+                                </span>
+                            </div>
+                            <p style="margin-top: 10px;"><b>Skills:</b> {app['skills']}</p>
+                            <p><b>College:</b> {app['college_name']}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="background: {status_color}; color: white; padding: 8px 16px; border-radius: 10px; font-weight: 700;">
+                                {app['status']}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Tab 2: AI Filtered Candidates
+    with tab2:
+        st.markdown("### 🤖 AI-Powered Candidate Ranking")
+        st.info("ℹ️ AI filters candidates based on: Skills Match, CGPA, Experience, Rural Priority (+20), Social Category Priority (+20)")
+        
+        # Get only "Applied" status applications
+        pending_apps = conn.execute("""
+            SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category
+            FROM applications a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.company = ? AND a.status = 'Applied'
+            ORDER BY a.created_at DESC
+        """, (company_name,)).fetchall()
+        
+        if not pending_apps:
+            st.warning("⚠️ No pending applications to filter.")
+        else:
+            # Convert to list of dicts
+            candidates_list = [dict(app) for app in pending_apps]
+            
+            # Run AI filter
+            requirements = {'skills': ''}  # Can be customized
+            all_ranked = ai_filter_candidates(candidates_list, requirements)
+            
+            # Get available seats
+            available_seats = company_info['available_seats'] if company_info else 1
+            top_candidates = get_top_candidates(all_ranked, available_seats)
+            waiting_list = all_ranked[available_seats:]
+            
+            st.markdown(f"### 🏆 Top {available_seats} Candidates (AI Recommended)")
+            
+            for rank, item in enumerate(top_candidates, 1):
+                cand = item['data']
+                score = item['score']
+                is_rural = item['is_rural']
+                is_reserved = item['is_reserved']
+                
+                badges = []
+                if is_rural: badges.append("🏞️ Rural (+20)")
+                if is_reserved: badges.append("🏷️ Reserved (+20)")
+                
+                badges_html = " ".join([f"<span style='background:#28a745;color:white;padding:4px 10px;border-radius:10px;font-size:11px;font-weight:bold;margin-right:5px;'>{b}</span>" for b in badges])
+                
+                st.markdown(f"""
+                <div class="app-detail-card" style="border-left: 5px solid #28a745; background: rgba(40, 167, 69, 0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0; color: #fff;">#{rank} {cand['name']}</h3>
+                            <p style="color: #b8b8b8; margin: 5px 0;">{cand['email']} | {cand['district']}</p>
+                            <p><b>Skills:</b> {cand['skills']}</p>
+                            <p><b>CGPA:</b> {cand['cgpa']} | <b>College:</b> {cand['college_name']}</p>
+                            <div style="margin-top: 10px;">{badges_html}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 32px; font-weight: 800; color: #ffb703;">{score}</div>
+                            <div style="font-size: 12px; color: #666;">AI Score</div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Action buttons
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    if st.button(f"✅ Accept {cand['name']}", key=f"accept_{cand['id']}", use_container_width=True):
+                        # Check if seats are available
+                        if company_info and company_info['available_seats'] > 0:
+                            # Set 24-hour deadline
+                            selected_time = datetime.datetime.now()
+                            deadline = selected_time + datetime.timedelta(hours=24)
+                            
+                            conn.execute("""
+                                UPDATE applications 
+                                SET status = 'Selected', selected_at = ?, response_deadline = ?
+                                WHERE id = ?
+                            """, (selected_time, deadline, cand['id']))
+                            
+                            # Update seat allocation
+                            update_seat_allocation(company_name, 1)
+                            
+                            conn.commit()
+                            st.success(f"✅ {cand['name']} has been selected! Offer valid for 24 hours.")
+                            st.rerun()
+                        else:
+                            st.error("❌ No seats available!")
+                
+                with col2:
+                    if st.button(f"❌ Reject {cand['name']}", key=f"reject_{cand['id']}", use_container_width=True):
+                        conn.execute("UPDATE applications SET status = 'Rejected' WHERE id = ?", (cand['id'],))
+                        conn.commit()
+                        st.info(f"Rejected {cand['name']}")
+                        st.rerun()
+            
+            # Waiting List
+            if waiting_list:
+                st.markdown("<br><br>", unsafe_allow_html=True)
+                st.markdown("### ⏳ Waiting List")
+                st.info(f"📊 {len(waiting_list)} candidates in waiting list")
+                
+                for rank, item in enumerate(waiting_list, available_seats + 1):
+                    cand = item['data']
+                    score = item['score']
+                    
+                    st.markdown(f"""
+                    <div class="app-detail-card" style="border-left: 5px solid #666; opacity: 0.7;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <h4 style="margin: 0; color: #ccc;">#{rank} {cand['name']}</h4>
+                                <p style="color: #888; margin: 5px 0; font-size: 13px;">{cand['email']}</p>
+                                <p style="font-size: 13px;"><b>Skills:</b> {cand['skills']} | <b>CGPA:</b> {cand['cgpa']}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: 700; color: #666;">{score}</div>
+                                <div style="font-size: 11px; color: #555;">Score</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+    # Tab 3: Selected Candidates
+    with tab3:
+        st.markdown("### ✅ Selected Candidates")
+        
+        selected = conn.execute("""
+            SELECT a.*, u.name, u.email, u.phone
+            FROM applications a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.company = ? AND a.status = 'Selected'
+            ORDER BY a.selected_at DESC
+        """, (company_name,)).fetchall()
+        
+        if not selected:
+            st.info("ℹ️ No candidates selected yet.")
+        else:
+            for sel in selected:
+                st.markdown(f"""
+                <div class="app-detail-card" style="border-left: 5px solid #28a745;">
+                    <h3 style="color: #28a745; margin: 0;">{sel['name']}</h3>
+                    <p style="color: #b8b8b8; margin: 5px 0;">{sel['email']} | {sel['phone']}</p>
+                    <p><b>Skills:</b> {sel['skills']}</p>
+                    <p><b>Selected At:</b> {sel['selected_at']}</p>
+                    <p><b>Response Deadline:</b> {sel['response_deadline']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Tab 4: Response Tracking
+    with tab4:
+        st.markdown("### ⏰ 24-Hour Response Tracking")
+        st.info("ℹ️ Candidates must respond within 24 hours of selection, or the offer will be revoked.")
+        
+        selected_with_deadline = conn.execute("""
+            SELECT a.*, u.name, u.email, u.phone
+            FROM applications a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.company = ? AND a.status = 'Selected' AND a.response_deadline IS NOT NULL
+            ORDER BY a.response_deadline ASC
+        """, (company_name,)).fetchall()
+        
+        if not selected_with_deadline:
+            st.info("ℹ️ No active offers with deadlines.")
+        else:
+            now = datetime.datetime.now()
+            
+            for sel in selected_with_deadline:
+                deadline = datetime.datetime.fromisoformat(sel['response_deadline'])
+                time_left = deadline - now
+                
+                if time_left.total_seconds() > 0:
+                    hours_left = int(time_left.total_seconds() // 3600)
+                    minutes_left = int((time_left.total_seconds() % 3600) // 60)
+                    status_color = "#28a745" if hours_left > 12 else "#ffc107" if hours_left > 6 else "#dc3545"
+                    
+                    st.markdown(f"""
+                    <div class="app-detail-card" style="border-left: 5px solid {status_color};">
+                        <h3 style="color: #fff; margin: 0;">{sel['name']}</h3>
+                        <p style="color: #b8b8b8; margin: 5px 0;">{sel['email']}</p>
+                        <p><b>Time Remaining:</b> <span style="color: {status_color}; font-weight: 700; font-size: 18px;">{hours_left}h {minutes_left}m</span></p>
+                        <p style="font-size: 12px; color: #666;">Deadline: {sel['response_deadline']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    # Deadline passed - auto-reject
+                    st.markdown(f"""
+                    <div class="app-detail-card" style="border-left: 5px solid #dc3545; background: rgba(220, 53, 69, 0.1);">
+                        <h3 style="color: #dc3545; margin: 0;">⏰ EXPIRED: {sel['name']}</h3>
+                        <p style="color: #b8b8b8; margin: 5px 0;">{sel['email']}</p>
+                        <p style="color: #dc3545;"><b>Candidate did not respond within 24 hours</b></p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button(f"🗑️ Revoke Offer for {sel['name']}", key=f"revoke_{sel['id']}"):
+                        conn.execute("UPDATE applications SET status = 'Rejected' WHERE id = ?", (sel['id'],))
+                        update_seat_allocation(company_name, -1)  # Free up the seat
+                        conn.commit()
+                        st.success("Offer revoked and seat freed up!")
+                        st.rerun()
+    
+    conn.close()
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # Logout button
+    if st.button("🚪 Logout", use_container_width=False):
+        st.session_state.hr_user = None
+        st.session_state.page = "home"
+        st.rerun()
+
 # ---------------- ROUTER ----------------
 if st.session_state.page == "home":
     home()
@@ -1713,3 +2098,7 @@ elif st.session_state.page == "application_detail":
     application_detail()
 elif st.session_state.page == "employer_dashboard":
     employer_dashboard()
+elif st.session_state.page == "hr_login":
+    hr_login_page()
+elif st.session_state.page == "hr_dashboard":
+    hr_dashboard()
