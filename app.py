@@ -1488,6 +1488,17 @@ def application_detail():
 
 # ---------------- EMPLOYER DASHBOARD ----------------
 def employer_dashboard():
+    # Security Check - Only Admin can access
+    if not st.session_state.user or st.session_state.user.get('role') != 'admin':
+        st.error("⛔ Access Denied: Admin privileges required.")
+        st.info("ℹ️ Please login with admin credentials to access this dashboard.")
+        st.markdown("### Admin Login Credentials:")
+        st.code("Email: admin@internship.gov.in\nPassword: admin123")
+        st.session_state.page = "home"
+        if st.button("← Return to Home"):
+            st.rerun()
+        return
+
     render_header()
 
     
