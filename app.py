@@ -1488,15 +1488,8 @@ def application_detail():
 
 # ---------------- EMPLOYER DASHBOARD ----------------
 def employer_dashboard():
-    # Security Check
-    if not st.session_state.user or st.session_state.user.get('role') != 'admin':
-        st.error("⛔ Access Denied: Admin privileges required.")
-        st.session_state.page = "home"
-        if st.button("Return to Home"):
-            st.rerun()
-        return
-
     render_header()
+
     
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
     st.markdown('<div class="card-title">🏢 Employer / Admin Portal</div>', unsafe_allow_html=True)
