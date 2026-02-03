@@ -1,13 +1,19 @@
-__pycache__/
-*.py[cod]
-*$py.class
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.streamlit/
-data/*.db
-data/*.sqlite
+# Build folders
+bin/
+obj/
+.vs/
+
+# User files
+*.user
+*.suo
+
+# Logs
+*.log
+
+# Database
+*.mdf
+*.ldf
+
+# OS files
+.DS_Store
+Thumbs.db
