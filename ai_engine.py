@@ -4,7 +4,7 @@ def ai_filter_candidates(candidates_list, requirements):
     1. Calculate scores based on Skills match, CGPA, and Experience.
     2. Rural candidates get a priority weight.
     3. Social Category candidates (SC, ST, OBC, MBC) get a priority weight.
-    4. Select top 5 candidates.
+    4. Return ALL candidates sorted by score (not just top 5)
     """
     scored = []
     
@@ -39,15 +39,13 @@ def ai_filter_candidates(candidates_list, requirements):
             
         scored.append({'data': cand, 'score': score, 'is_rural': is_rural, 'is_reserved': is_reserved})
 
-    # Sort by score
+    # Sort by score (highest first)
     scored_sorted = sorted(scored, key=lambda x: x['score'], reverse=True)
     
-    # Selection algorithm: Select Top 5
-    # Since we added weights for Rural and Social Category, they will naturally bubble up.
-    # We strictly limit to 5 as per "5 offers" constraint.
-    
-    offer_limit = 5
-    selected_entries = scored_sorted[:offer_limit]
-    
-    # Return the full structure so we can show scores in UI
-    return selected_entries
+    # Return ALL candidates sorted by score
+    return scored_sorted
+
+
+def get_top_candidates(all_candidates, limit=5):
+    """Get top N candidates from the sorted list"""
+    return all_candidates[:limit]
