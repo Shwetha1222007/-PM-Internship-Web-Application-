@@ -2215,11 +2215,77 @@ def hr_dashboard():
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Tabs for different sections
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 All Applications", "🤖 AI Filtered Candidates", "✅ Selected", "⏰ Response Tracking"])
+    tab0, tab1, tab2, tab3, tab4 = st.tabs(["⏳ Review Required", "📋 All Applications", "🤖 AI Filtered Candidates", "✅ Selected", "⏰ Response Tracking"])
     
     # Get all applications for this company
     conn = get_connection()
-    
+    from waiting_list_manager import select_candidates_and_create_waiting_list, handle_hr_decision
+
+    # Tab 0: Review Required (New Flow)
+    with tab0:
+        st.markdown("### ⏳ Top Candidates Pending Your Approval")
+        st.info("ℹ️ These candidates have been ranked #1 by the AI. Please review and Approve or Decline.")
+        
+        pending_review = conn.execute("""
+            SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category
+            FROM applications a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.company = ? AND a.status = 'Review Pending'
+            ORDER BY a.ai_score DESC
+        """, (company_name,)).fetchall()
+        
+        if not pending_review:
+            st.success("✨ All pending reviews are complete!")
+        else:
+            for app in pending_review:
+                st.markdown(f"""
+                <div class="app-detail-card" style="border-left: 5px solid #ffb703; background: rgba(255, 183, 3, 0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0; color: #fff;">{app['name']}</h3>
+                            <p style="color: #b8b8b8; margin: 5px 0;">{app['email']} | {app['district']}</p>
+                            <p><b>AI Score:</b> <span style="color: #ffb703; font-weight: bold;">{app['ai_score']}</span></p>
+                            <p><b>Skills:</b> {app['skills']}</p>
+                            <p><b>College:</b> {app['college_name']} | <b>CGPA:</b> {app['cgpa']}</p>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    if st.button(f"✅ Approve {app['name']}", key=f"hr_approve_{app['id']}", use_container_width=True):
+                        success, msg = handle_hr_decision(app['id'], hr_user['username'], 'Accept')
+                        if success:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                
+                with col2:
+                    # Logic for Rejection with Mandatory Reason
+                    if f"show_reject_reason_{app['id']}" not in st.session_state:
+                        if st.button(f"❌ Decline Profile", key=f"hr_pre_reject_{app['id']}", use_container_width=True):
+                            st.session_state[f"show_reject_reason_{app['id']}"] = True
+                            st.rerun()
+                    
+                    if st.session_state.get(f"show_reject_reason_{app['id']}"):
+                        reason = st.text_area("Reason for Rejection (Required for Admin Audit)", key=f"reason_text_{app['id']}", placeholder="e.g., Skills do not match project specifics...")
+                        if st.button("Submit Rejection & Promote Backup", key=f"hr_submit_reject_{app['id']}", use_container_width=True, type="primary"):
+                            if not reason:
+                                st.error("⚠️ You MUST provide a reason to reject a top candidate.")
+                            else:
+                                success, msg = handle_hr_decision(app['id'], hr_user['username'], 'Reject', reason)
+                                if success:
+                                    st.session_state[f"show_reject_reason_{app['id']}"] = False
+                                    st.warning(msg)
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
+                        if st.button("Cancel", key=f"cancel_reject_{app['id']}"):
+                            st.session_state[f"show_reject_reason_{app['id']}"] = False
+                            st.rerun()
+
     # Tab 1: All Applications
     with tab1:
         st.markdown("### 📋 All Applications for " + company_name)
@@ -2240,10 +2306,11 @@ def hr_dashboard():
             for app in applications:
                 status_color = {
                     'Applied': '#ffc107',
+                    'Review Pending': '#ffb703',
+                    'Shortlisted': '#17a2b8',
                     'Selected': '#28a745',
                     'Rejected': '#dc3545',
-                    'Waiting List': '#ff9800',
-                    'Pending': '#17a2b8'
+                    'Waiting List': '#ff9800'
                 }.get(app['status'], '#666')
                 
                 st.markdown(f"""
@@ -2251,25 +2318,13 @@ def hr_dashboard():
                     <div style="display: flex; justify-content: space-between; align-items: start;">
                         <div style="flex: 1;">
                             <h3 style="margin: 0; color: #fff;">{app['name']}</h3>
-                            <p style="color: #b8b8b8; margin: 5px 0;">{app['email']} | {app['phone']}</p>
-                            <div style="margin-top: 10px;">
-                                <span style="background: rgba(255,183,3,0.2); padding: 5px 10px; border-radius: 5px; font-size: 12px; color: #ffb703; margin-right: 10px;">
-                                    📍 {app['district']}
-                                </span>
-                                <span style="background: rgba(255,183,3,0.2); padding: 5px 10px; border-radius: 5px; font-size: 12px; color: #ffb703; margin-right: 10px;">
-                                    🎓 CGPA: {app['cgpa']}
-                                </span>
-                                <span style="background: rgba(255,183,3,0.2); padding: 5px 10px; border-radius: 5px; font-size: 12px; color: #ffb703;">
-                                    {app['rural']}
-                                </span>
-                            </div>
-                            <p style="margin-top: 10px;"><b>Skills:</b> {app['skills']}</p>
-                            <p><b>College:</b> {app['college_name']}</p>
+                            <p style="color: #b8b8b8; margin: 5px 0;">{app['email']} | Status: <b>{app['status']}</b></p>
+                            <p style="font-size: 13px;"><b>Skills:</b> {app['skills']}</p>
                         </div>
                         <div style="text-align: right;">
-                            <div style="background: {status_color}; color: white; padding: 8px 16px; border-radius: 10px; font-weight: 700;">
-                                {app['status']}
-                            </div>
+                             <div style="background: {status_color}; color: white; padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: bold;">
+                                AI Score: {app['ai_score'] or 'N/A'}
+                             </div>
                         </div>
                     </div>
                 </div>
@@ -2277,96 +2332,38 @@ def hr_dashboard():
     
     # Tab 2: AI Filtered Candidates
     with tab2:
-        st.markdown("### 🤖 AI-Powered Candidate Ranking")
-        st.info("ℹ️ AI filters candidates based on: Skills Match, CGPA, Experience, Rural Priority (+20), Social Category Priority (+20)")
+        st.markdown("### 🤖 Automated AI Selection System")
+        st.info("ℹ️ Click the button below to automatically rank all 'Applied' candidates and trigger the selection workflow.")
         
-        # Get only "Applied" status applications
+        if st.button("🚀 Run AI Selection & Ranking Process", use_container_width=True, type="primary"):
+            with st.spinner("AI is ranking candidates and preparing notifications..."):
+                # Define generic requirements for now
+                requirements = {'skills': ''} # Could be pulled from company job desc
+                result = select_candidates_and_create_waiting_list(company_name, "Chennai", requirements) # Example location
+                st.success(f"✅ Process Complete! {result['review_pending']} candidates moved to Review, {result['shortlisted']} Shortlisted, {result['waiting_list']} on Waiting List.")
+                st.rerun()
+
+        st.markdown("---")
+        # Get only "Applied" status applications for preview
         pending_apps = conn.execute("""
             SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category
             FROM applications a
             JOIN users u ON a.user_id = u.id
             WHERE a.company = ? AND a.status = 'Applied'
-            ORDER BY a.created_at DESC
         """, (company_name,)).fetchall()
         
-        if not pending_apps:
-            st.warning("⚠️ No pending applications to filter.")
-        else:
+        if pending_apps:
+            st.markdown("#### 🔍 Candidate Preview (AI Rankings)")
             # Convert to list of dicts
             candidates_list = [dict(app) for app in pending_apps]
+            all_ranked = ai_filter_candidates(candidates_list, {'skills': ''})
             
-            # Run AI filter
-            requirements = {'skills': ''}  # Can be customized
-            all_ranked = ai_filter_candidates(candidates_list, requirements)
-            
-            # Get available seats
-            available_seats = company_info['available_seats'] if company_info else 1
-            top_candidates = get_top_candidates(all_ranked, available_seats)
-            waiting_list = all_ranked[available_seats:]
-            
-            st.markdown(f"### 🏆 Top {available_seats} Candidates (AI Recommended)")
-            
-            for rank, item in enumerate(top_candidates, 1):
+            for rank, item in enumerate(all_ranked, 1):
                 cand = item['data']
                 score = item['score']
-                is_rural = item['is_rural']
-                is_reserved = item['is_reserved']
-                
-                badges = []
-                if is_rural: badges.append("🏞️ Rural (+20)")
-                if is_reserved: badges.append("🏷️ Reserved (+20)")
-                
-                badges_html = " ".join([f"<span style='background:#28a745;color:white;padding:4px 10px;border-radius:10px;font-size:11px;font-weight:bold;margin-right:5px;'>{b}</span>" for b in badges])
-                
-                st.markdown(f"""
-                <div class="app-detail-card" style="border-left: 5px solid #28a745; background: rgba(40, 167, 69, 0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div style="flex: 1;">
-                            <h3 style="margin: 0; color: #fff;">#{rank} {cand['name']}</h3>
-                            <p style="color: #b8b8b8; margin: 5px 0;">{cand['email']} | {cand['district']}</p>
-                            <p><b>Skills:</b> {cand['skills']}</p>
-                            <p><b>CGPA:</b> {cand['cgpa']} | <b>College:</b> {cand['college_name']}</p>
-                            <div style="margin-top: 10px;">{badges_html}</div>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 32px; font-weight: 800; color: #ffb703;">{score}</div>
-                            <div style="font-size: 12px; color: #666;">AI Score</div>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Action buttons
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    if st.button(f"✅ Accept {cand['name']}", key=f"accept_{cand['id']}", use_container_width=True):
-                        # Check if seats are available
-                        if company_info and company_info['available_seats'] > 0:
-                            # Set 48-hour deadline (changed from 24 to 48 hours)
-                            selected_time = datetime.datetime.now()
-                            deadline = selected_time + datetime.timedelta(hours=48)
-                            
-                            conn.execute("""
-                                UPDATE applications 
-                                SET status = 'Selected', selected_at = ?, response_deadline = ?
-                                WHERE id = ?
-                            """, (selected_time, deadline, cand['id']))
-                            
-                            # Update seat allocation
-                            update_seat_allocation(company_name, 1)
-                            
-                            conn.commit()
-                            st.success(f"✅ {cand['name']} has been selected! Offer valid for 48 hours.")
-                            st.rerun()
-                        else:
-                            st.error("❌ No seats available!")
-                
-                with col2:
-                    if st.button(f"❌ Reject {cand['name']}", key=f"reject_{cand['id']}", use_container_width=True):
-                        conn.execute("UPDATE applications SET status = 'Rejected' WHERE id = ?", (cand['id'],))
-                        conn.commit()
-                        st.info(f"Rejected {cand['name']}")
-                        st.rerun()
+                st.markdown(f"**#{rank} {cand['name']}** - AI Score: `{score}`")
+        else:
+            st.write("No 'Applied' candidates left to process.")
             
             # Waiting List
             if waiting_list:
