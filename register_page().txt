@@ -1,0 +1,38 @@
+from datetime import date
+from ui_styles import apply_ui, header
+
+def register_page():
+    apply_ui()
+    header()
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("## 📝 PM Internship Registration")
+
+    with st.form("registration_form"):
+
+        st.subheader("👤 Personal Details")
+        name = st.text_input("Full Name (as per Aadhaar)")
+        email = st.text_input("Email")
+        phone = st.text_input("Mobile Number")
+        password = st.text_input("Password", type="password")
+
+        min_dob = date.today().replace(year=date.today().year - 24)
+        max_dob = date.today().replace(year=date.today().year - 21)
+
+        dob = st.date_input(
+            "Date of Birth",
+            min_value=min_dob,
+            max_value=max_dob
+        )
+
+        gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+        blood_group = st.selectbox(
+            "Blood Group",
+            ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"]
+        )
+
+        aadhaar = st.text_input("Aadhaar Number (12 digits)", max_chars=12)
+
+        st.subheader("🏠 Address Details")
+        address = st.text_area("Full Address")
+        state = st.text_input("State"_

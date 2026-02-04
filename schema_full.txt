@@ -1,0 +1,1 @@
+CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT UNIQUE, phone TEXT, district TEXT, rural TEXT, social_category TEXT, password TEXT, dob TEXT, created_at TIMESTAMP DEFAULT '2024-01-22 00:00:00', aadhaar TEXT, address TEXT, blood_group TEXT, bank_account TEXT, role TEXT DEFAULT 'student')

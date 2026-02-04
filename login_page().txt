@@ -1,0 +1,30 @@
+apply_ui()
+header()
+
+def login():
+    apply_dark_theme()
+    render_header()
+
+def login_page():
+    st.markdown("## 🔐 Login")
+
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Login"):
+            user = login_user(email, password)
+            if user:
+                st.session_state.user = user
+                st.session_state.page = "dashboard"
+                st.success("Login Successful 🎉")
+                st.rerun()   # 🔥 THIS IS THE KEY FIX
+            else:
+                st.error("❌ Invalid Email or Password")
+
+    with col2:
+        if st.button("⬅️ Back"):
+            st.session_state.page = "home"
+            st.rerun()

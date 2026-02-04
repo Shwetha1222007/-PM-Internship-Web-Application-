@@ -1,0 +1,9 @@
+if "apply" in st.session_state:
+    skills = st.text_input("Skills")
+    sector = st.selectbox("Sector", ["IT", "Manufacturing"])
+    company = st.text_input("Company Name")
+    experience = st.selectbox("Past Experience", ["Yes", "No"])
+
+    if st.button("Submit Application"):
+        st.success("Application Submitted!")
+        st.info("Application sent to HR for review")

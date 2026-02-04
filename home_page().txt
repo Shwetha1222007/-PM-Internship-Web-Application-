@@ -1,0 +1,50 @@
+import streamlit as st
+from ui_styles import apply_ui, header
+
+def home_page():
+
+    apply_ui()
+    header()
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+
+    st.markdown("## 👋 Welcome to PM Internship Scheme")
+
+    st.write("""
+    Government of India initiative to empower youth with real industry exposure.
+    This platform connects ambitious youth with top companies across India
+    for hands-on internship experience.
+    """)
+
+    st.markdown("### 🎯 Learn • Work • Grow")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("📝 Youth Registration", use_container_width=True):
+            st.session_state.page = "register"
+            st.rerun()
+
+    with col2:
+        if st.button("🔐 Login", use_container_width=True):
+            st.session_state.page = "login"
+            st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown("### 🏢 Top Participating Companies")
+
+    cols = st.columns(5)
+    logos = [
+        "https://upload.wikimedia.org/wikipedia/commons/4/4f/REC_Limited_Logo.svg",
+        "https://upload.wikimedia.org/wikipedia/commons/1/1f/JSW_Group_logo.svg",
+        "https://upload.wikimedia.org/wikipedia/commons/3/3a/GAIL_Logo.svg",
+        "https://upload.wikimedia.org/wikipedia/commons/8/8b/Cognizant_logo_2022.svg",
+        "https://upload.wikimedia.org/wikipedia/commons/2/2b/L%26T_Logo.svg"
+    ]
+
+    for i in range(5):
+        with cols[i]:
+            st.image(logos[i], use_column_width=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
