@@ -5,36 +5,40 @@ Handles candidate selection, waiting list placement, and location-based alternat
 import sqlite3
 from datetime import datetime
 from database import get_connection
-from email_service import send_update_to_candidate
+from email_service import (
+    send_update_to_candidate,
+    send_hr_announcement,
+    send_admin_rejection_audit
+)
 from ai_engine import ai_filter_candidates
 
 
 def process_applications_for_position(company, location, requirements):
     """
     Process all applications for a specific company and location
-    Returns: (selected_candidates, waiting_list_candidates)
+    Returns: (ranked_candidates)
     """
     conn = get_connection()
     cur = conn.cursor()
-    
+
     # Get available seats for this company-location
     cur.execute("""
-        SELECT available_seats, allocated_seats 
-        FROM company_locations 
+        SELECT available_seats, allocated_seats
+        FROM company_locations
         WHERE company_name = ? AND location = ?
     """, (company, location))
-    
+
     location_data = cur.fetchone()
     if not location_data:
-        return [], []
-    
+        return []
+
     available_seats = location_data['available_seats']
     allocated_seats = location_data['allocated_seats']
     remaining_seats = available_seats - allocated_seats
-    
+
     if remaining_seats <= 0:
-        return [], []
-    
+        return []
+
     # Get all applications for this company and location
     cur.execute("""
         SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category
@@ -42,12 +46,12 @@ def process_applications_for_position(company, location, requirements):
         JOIN users u ON a.user_id = u.id
         WHERE a.company = ? AND a.location_pref = ? AND a.status = 'Applied'
     """, (company, location))
-    
+
     applications = cur.fetchall()
-    
+
     if not applications:
-        return [], []
-    
+        return []
+
     # Convert to list of dicts for AI processing
     candidates_list = []
     for app in applications:
@@ -68,147 +72,202 @@ def process_applications_for_position(company, location, requirements):
             'languages': app['languages']
         }
         candidates_list.append(candidate)
-    
+
     # Use AI to rank candidates
     ranked_candidates = ai_filter_candidates(candidates_list, requirements)
-    
-    # Select top candidates based on available seats
-    selected = ranked_candidates[:remaining_seats]
-    waiting_list = ranked_candidates[remaining_seats:]
-    
     conn.close()
-    return selected, waiting_list
+    return ranked_candidates
 
 
 def select_candidates_and_create_waiting_list(company, location, requirements):
     """
-    Select top candidates and place others on waiting list
-    Send notifications to all candidates
+    Enhanced selection logic:
+    1. Top candidate -> Review Pending (HR Review)
+    2. Next candidate -> Shortlisted (Backup)
+    3. Others -> Waiting List
     """
-    selected, waiting_list = process_applications_for_position(company, location, requirements)
-    
+    ranked = process_applications_for_position(company, location, requirements)
+    if not ranked:
+        return {'selected_count': 0, 'waiting_list_count': 0}
+
     conn = get_connection()
     cur = conn.cursor()
-    
-    # Process selected candidates
-    for idx, candidate_obj in enumerate(selected):
-        candidate = candidate_obj['data']
-        score = candidate_obj['score']
-        
-        # Update application status
+
+    # Get HR user for this company
+    cur.execute("SELECT * FROM hr_users WHERE company = ?", (company,))
+    hr_user = cur.fetchone()
+
+    # Rule: If we have at least 1 candidate, we process
+    # Requirement: 3 candidate case specially mentioned
+    # Top 2 get Shortlisted mail. Top 1 goes to HR.
+
+    for idx, item in enumerate(ranked):
+        cand = item['data']
+        score = item['score']
+        app_id = cand['application_id']
+
+        # Save score in both tables for redundancy and historical tracking
+        cur.execute("UPDATE applications SET ai_score = ? WHERE id = ?", (score, app_id))
+
+        if idx == 0:
+            # Top Candidate -> Review Pending for HR
+            cur.execute("UPDATE applications SET status = 'Review Pending' WHERE id = ?", (app_id,))
+
+            # Send Shortlisted email to candidate
+            send_update_to_candidate(cand['email'], "Shortlisted", company)
+
+            # Send Detail disclosure to HR
+            # Check for Same Qualification Tie with 2nd candidate
+            same_qual = False
+            if len(ranked) > 1 and abs(ranked[0]['score'] - ranked[1]['score']) < 0.001:
+                same_qual = True
+
+            if hr_user:
+                app_data = {
+                    'app_id': app_id,
+                    'company': company,
+                    'sector': cand.get('sector', 'N/A'),
+                    'skills': cand['skills'],
+                    'cgpa': cand['cgpa'],
+                    'experience': cand['experience'],
+                    'college_name': cand['college_name'],
+                    'languages': cand['languages'],
+                    'ai_score': f"{score:.2f}"
+                }
+                send_hr_announcement(cand, app_data, same_qualification=same_qual)
+
+        elif idx == 1:
+            # 2nd Place Candidate -> Shortlisted (The Backup)
+            cur.execute("UPDATE applications SET status = 'Shortlisted' WHERE id = ?", (app_id,))
+            send_update_to_candidate(cand['email'], "Shortlisted", company)
+
+        else:
+            # Others -> Waiting List
+            cur.execute("UPDATE applications SET status = 'Waiting List' WHERE id = ?", (app_id,))
+
+            # Add to waiting list table
+            rank_pos = idx + 1
+            cur.execute("""
+                INSERT INTO waiting_list
+                (application_id, user_id, company, preferred_location, rank_position, ai_score, status, notified_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'Waiting', ?)
+            """, (app_id, cand['user_id'], company, location, rank_pos, score, datetime.now()))
+
+            # Send waiting list email
+            send_update_to_candidate(cand['email'], "Waiting List", company)
+
+    conn.commit()
+    conn.close()
+
+    return {
+        'review_pending': 1 if len(ranked) > 0 else 0,
+        'shortlisted': 1 if len(ranked) > 1 else 0,
+        'waiting_list': max(0, len(ranked) - 2)
+    }
+
+
+def handle_hr_decision(application_id, hr_username, action, reason=None):
+    """
+    Processes HR decision (Accept/Reject).
+    If Accept -> Candidate selected.
+    If Reject -> Candidate rejected, reason sent to Admin, Backup promoted.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Get application and candidate details
+    cur.execute("""
+        SELECT a.*, u.name, u.email
+        FROM applications a
+        JOIN users u ON a.user_id = u.id
+        WHERE a.id = ?
+    """, (application_id,))
+    app = cur.fetchone()
+
+    if not app:
+        conn.close()
+        return False, "Application not found"
+
+    company = app['company']
+    location = app['location_pref']
+
+    if action == 'Accept':
+        # Update Top Candidate to Selected
         cur.execute("""
-            UPDATE applications 
+            UPDATE applications
             SET status = 'Selected', selected_at = ?
             WHERE id = ?
-        """, (datetime.now(), candidate['application_id']))
-        
-        # Update allocated seats
+        """, (datetime.now(), application_id))
+
+        # Increment allocated seats
         cur.execute("""
-            UPDATE company_locations 
+            UPDATE company_locations
             SET allocated_seats = allocated_seats + 1
             WHERE company_name = ? AND location = ?
         """, (company, location))
-        
-        # Send selection email
-        try:
-            send_update_to_candidate(
-                candidate['email'],
-                candidate['name'],
-                company,
-                f"🎉 Congratulations! You have been SELECTED for the internship at {company}, {location}!",
-                f"""
-                <h2>Congratulations {candidate['name']}!</h2>
-                <p>We are pleased to inform you that you have been <strong>selected</strong> for the internship position at:</p>
-                <ul>
-                    <li><strong>Company:</strong> {company}</li>
-                    <li><strong>Location:</strong> {location}</li>
-                    <li><strong>Your AI Score:</strong> {score:.2f}</li>
-                    <li><strong>Rank:</strong> #{idx + 1}</li>
-                </ul>
-                <p>Please check your dashboard for further details and next steps.</p>
-                <p>You have 24 hours to accept this offer.</p>
-                """
-            )
-        except Exception as e:
-            print(f"Error sending selection email to {candidate['email']}: {e}")
-    
-    # Process waiting list candidates
-    for idx, candidate_obj in enumerate(waiting_list):
-        candidate = candidate_obj['data']
-        score = candidate_obj['score']
-        rank_position = len(selected) + idx + 1
-        
-        # Update application status
+
+        # Notify candidate
+        send_update_to_candidate(app['email'], "Selected", company)
+
+        # Check if there's a backup (Shortlisted) and move them to Waiting List (as they were only backup)
         cur.execute("""
-            UPDATE applications 
-            SET status = 'Waiting List'
+            UPDATE applications SET status = 'Waiting List'
+            WHERE company = ? AND location_pref = ? AND status = 'Shortlisted'
+        """, (company, location))
+
+        msg = f"Candidate {app['name']} successfully selected."
+
+    elif action == 'Reject':
+        if not reason:
+            conn.close()
+            return False, "Rejection reason is mandatory."
+
+        # Update Top Candidate to Rejected
+        cur.execute("""
+            UPDATE applications
+            SET status = 'Rejected', hr_rejection_reason = ?
             WHERE id = ?
-        """, (candidate['application_id'],))
-        
-        # Add to waiting list table
+        """, (reason, application_id))
+
+        # Notify Admin for Audit (the 'consequences' part)
+        send_admin_rejection_audit(hr_username, app['name'], company, reason)
+
+        # Promote Backup (Search for candidate with status 'Shortlisted' for this company/location)
         cur.execute("""
-            INSERT INTO waiting_list 
-            (application_id, user_id, company, preferred_location, rank_position, ai_score, status, notified_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'Waiting', ?)
-        """, (candidate['application_id'], candidate['user_id'], company, location, 
-              rank_position, score, datetime.now()))
-        
-        waiting_list_id = cur.lastrowid
-        
-        # Find alternative locations for this company
-        alternative_locations = find_alternative_locations(company, location, cur)
-        
-        # Send waiting list email with alternatives
-        try:
-            alternatives_html = ""
-            if alternative_locations:
-                alternatives_html = "<h3>Alternative Locations Available:</h3><ul>"
-                for alt_loc in alternative_locations:
-                    alternatives_html += f"<li><strong>{alt_loc['location']}</strong> - {alt_loc['available_seats']} seats available</li>"
-                    
-                    # Create alternative offer record
-                    cur.execute("""
-                        INSERT INTO alternative_offers 
-                        (waiting_list_id, user_id, company, alternative_location, response)
-                        VALUES (?, ?, ?, ?, 'Pending')
-                    """, (waiting_list_id, candidate['user_id'], company, alt_loc['location']))
-                
-                alternatives_html += "</ul><p>You can view and accept these alternatives from your dashboard.</p>"
-            else:
-                alternatives_html = "<p>Currently, no alternative locations are available for this company.</p>"
-            
-            send_update_to_candidate(
-                candidate['email'],
-                candidate['name'],
-                company,
-                f"📋 You are on the Waiting List for {company}, {location}",
-                f"""
-                <h2>Hello {candidate['name']},</h2>
-                <p>Thank you for applying to <strong>{company}</strong> for the location <strong>{location}</strong>.</p>
-                <p>While you were not selected for the primary position, you have been placed on the <strong>Waiting List</strong>.</p>
-                <ul>
-                    <li><strong>Company:</strong> {company}</li>
-                    <li><strong>Preferred Location:</strong> {location}</li>
-                    <li><strong>Your AI Score:</strong> {score:.2f}</li>
-                    <li><strong>Waiting List Position:</strong> #{idx + 1}</li>
-                </ul>
-                {alternatives_html}
-                <p>If you are not satisfied with the alternative locations, you can apply to other companies from your dashboard.</p>
-                <p><strong>Note:</strong> If a selected candidate declines their offer, you may be promoted from the waiting list.</p>
-                """
-            )
-        except Exception as e:
-            print(f"Error sending waiting list email to {candidate['email']}: {e}")
-    
+            SELECT id, user_id FROM applications
+            WHERE company = ? AND location_pref = ? AND status = 'Shortlisted'
+            ORDER BY ai_score DESC LIMIT 1
+        """, (company, location))
+        backup = cur.fetchone()
+
+        if backup:
+            # Update backup to Selected
+            cur.execute("""
+                UPDATE applications
+                SET status = 'Selected', selected_at = ?
+                WHERE id = ?
+            """, (datetime.now(), backup['id']))
+
+            # Increment allocated seats
+            cur.execute("""
+                UPDATE company_locations
+                SET allocated_seats = allocated_seats + 1
+                WHERE company_name = ? AND location = ?
+            """, (company, location))
+
+            # Get backup user email
+            cur.execute("SELECT email, name FROM users WHERE id = ?", (backup['user_id'],))
+            backup_user = cur.fetchone()
+            if backup_user:
+                send_update_to_candidate(backup_user['email'], "Selected", company)
+
+            msg = f"Candidate {app['name']} rejected. Backup candidate has been automatically selected."
+        else:
+            msg = f"Candidate {app['name']} rejected. No backup was found."
+
     conn.commit()
     conn.close()
-    
-    return {
-        'selected_count': len(selected),
-        'waiting_list_count': len(waiting_list),
-        'selected': selected,
-        'waiting_list': waiting_list
-    }
+    return True, msg
 
 
 def find_alternative_locations(company, preferred_location, cur):
