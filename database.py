@@ -151,6 +151,8 @@ def create_tables():
     add_column_if_missing('applications', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
     add_column_if_missing('applications', 'selected_at', 'TIMESTAMP')
     add_column_if_missing('applications', 'response_deadline', 'TIMESTAMP')
+    add_column_if_missing('applications', 'ai_score', 'REAL')
+    add_column_if_missing('applications', 'hr_rejection_reason', 'TEXT')
 
     seed_admin(cur)
     seed_hr_users(cur)
