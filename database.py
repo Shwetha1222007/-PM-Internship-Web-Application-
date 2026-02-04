@@ -78,6 +78,53 @@ def create_tables():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
+    
+    # --- COMPANY LOCATIONS TABLE ---
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS company_locations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT,
+        location TEXT,
+        available_seats INTEGER DEFAULT 1,
+        allocated_seats INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(company_name, location)
+    )
+    """)
+    
+    # --- WAITING LIST TABLE ---
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS waiting_list (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        application_id INTEGER,
+        user_id INTEGER,
+        company TEXT,
+        preferred_location TEXT,
+        rank_position INTEGER,
+        ai_score REAL,
+        status TEXT DEFAULT 'Waiting',
+        notified_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (application_id) REFERENCES applications (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+    """)
+    
+    # --- ALTERNATIVE OFFERS TABLE ---
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS alternative_offers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        waiting_list_id INTEGER,
+        user_id INTEGER,
+        company TEXT,
+        alternative_location TEXT,
+        offered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        response TEXT DEFAULT 'Pending',
+        responded_at TIMESTAMP,
+        FOREIGN KEY (waiting_list_id) REFERENCES waiting_list (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+    """)
 
     # --- SCHEMA EVOLUTION (Adding missing columns if they don't exist) ---
     def add_column_if_missing(table, column, definition):
@@ -108,6 +155,7 @@ def create_tables():
     seed_admin(cur)
     seed_hr_users(cur)
     seed_companies(cur)
+    seed_company_locations(cur)
 
     conn.commit()
     conn.close()
@@ -191,6 +239,64 @@ def seed_companies(cur):
                 VALUES (?, ?, 0)
             """, (company_name, seats))
             print(f"✅ Company created: {company_name} with {seats} seats")
+
+
+def seed_company_locations(cur):
+    """Seed company locations with available seats"""
+    company_locations = [
+        # Zoho locations
+        ("Zoho", "Chennai", 3),
+        ("Zoho", "Bangalore", 2),
+        ("Zoho", "Hyderabad", 1),
+        
+        # Infosys locations
+        ("Infosys", "Bangalore", 5),
+        ("Infosys", "Mysore", 3),
+        ("Infosys", "Pune", 4),
+        ("Infosys", "Hyderabad", 3),
+        
+        # TCS locations
+        ("TCS", "Chennai", 5),
+        ("TCS", "Mumbai", 4),
+        ("TCS", "Kolkata", 3),
+        ("TCS", "Bangalore", 6),
+        ("TCS", "Hyderabad", 4),
+        
+        # Wipro locations
+        ("Wipro", "Bangalore", 3),
+        ("Wipro", "Hyderabad", 2),
+        ("Wipro", "Pune", 2),
+        
+        # Google locations
+        ("Google", "Bangalore", 2),
+        ("Google", "Hyderabad", 1),
+        
+        # Microsoft locations
+        ("Microsoft", "Bangalore", 2),
+        ("Microsoft", "Hyderabad", 1),
+        
+        # Amazon locations
+        ("Amazon", "Bangalore", 4),
+        ("Amazon", "Hyderabad", 3),
+        ("Amazon", "Chennai", 2),
+        
+        # Flipkart locations
+        ("Flipkart", "Bangalore", 3),
+        ("Flipkart", "Hyderabad", 2),
+    ]
+    
+    for company, location, seats in company_locations:
+        cur.execute("SELECT * FROM company_locations WHERE company_name = ? AND location = ?", 
+                   (company, location))
+        existing = cur.fetchone()
+        
+        if not existing:
+            cur.execute("""
+                INSERT INTO company_locations (company_name, location, available_seats, allocated_seats)
+                VALUES (?, ?, ?, 0)
+            """, (company, location, seats))
+            print(f"✅ Location created: {company} - {location} with {seats} seats")
+
 
 
 if __name__ == "__main__":
