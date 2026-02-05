@@ -1,42 +1,59 @@
-import sqlite3
+"""
+Debug login issue - check database and test login
+"""
+from database import get_connection
+from auth import login_user
 import bcrypt
 
-# Connect to database
-conn = sqlite3.connect('data/internship.db')
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
+conn = get_connection()
+cursor = conn.cursor()
 
-# Get the user
-email = "shwetha12206@gmail.com"
-cur.execute("SELECT * FROM users WHERE email = ?", (email,))
-user = cur.fetchone()
+print("\n" + "="*80)
+print("DATABASE USERS CHECK")
+print("="*80)
 
-if user:
-    print(f"User found: {user['name']}")
+# Check all users
+users = cursor.execute("SELECT id, name, email, role, password FROM users").fetchall()
+
+print(f"\nTotal Users: {len(users)}")
+print("\n" + "-"*80)
+
+for user in users:
+    print(f"\nID: {user['id']}")
+    print(f"Name: {user['name']}")
     print(f"Email: {user['email']}")
-    password_hash = user['password']
-    print(f"Password hash: {password_hash}")
-    print(f"Password length: {len(password_hash)}")
-    print(f"Password starts with $2b$: {password_hash.startswith('$2b$')}")
-    
-    # Check if role column exists
-    try:
-        role = user['role']
-        print(f"Role: {role}")
-    except:
-        print("Role: Column doesn't exist")
-else:
-    print(f"No user found with email: {email}")
-
-# List all users
-print("\n=== All Users ===")
-cur.execute("SELECT * FROM users")
-all_users = cur.fetchall()
-for u in all_users:
-    try:
-        role = u['role']
-    except:
-        role = 'N/A'
-    print(f"ID: {u['id']}, Name: {u['name']}, Email: {u['email']}, Role: {role}")
+    print(f"Role: {user['role']}")
+    print(f"Password (first 30 chars): {user['password'][:30]}...")
+    print(f"Password length: {len(user['password'])}")
+    print(f"Is bcrypt hash: {user['password'].startswith('$2b$')}")
+    print("-"*80)
 
 conn.close()
+
+# Test login with common credentials
+print("\n" + "="*80)
+print("TESTING LOGIN")
+print("="*80)
+
+test_credentials = [
+    ("admin@internship.gov.in", "admin123"),
+]
+
+# Add any student emails found
+conn = get_connection()
+cursor = conn.cursor()
+students = cursor.execute("SELECT email FROM users WHERE role = 'student' LIMIT 3").fetchall()
+for student in students:
+    test_credentials.append((student['email'], "test123"))
+    test_credentials.append((student['email'], "password"))
+conn.close()
+
+for email, password in test_credentials:
+    print(f"\nTesting: {email} / {password}")
+    result = login_user(email, password)
+    if result:
+        print(f"✅ SUCCESS - Logged in as: {result['name']} ({result['role']})")
+    else:
+        print(f"❌ FAILED - Invalid credentials")
+
+print("\n✅ Debug complete!")
