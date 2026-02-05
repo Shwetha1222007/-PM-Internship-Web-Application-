@@ -1362,27 +1362,8 @@ def apply():
     with col2:
         company_options = [
             "Select Company",
-            # IT
-            "Tata Consultancy Services (TCS)", "Infosys Ltd.", "Wipro Ltd.", "HCL Technologies Ltd.", 
-            "Tech Mahindra Ltd.", "Cognizant Technology Solutions India Pvt. Ltd.", 
-            "Google IT Services India Pvt. Ltd.", "Microsoft India (R&D) Pvt. Ltd.", "IBM India Pvt. Ltd.",
-            # Finance
-            "HDFC Bank Ltd.", "ICICI Bank Ltd.", "Axis Bank Ltd.", "IndusInd Bank Ltd.", 
-            "Bajaj Finance Ltd.", "SBI Cards & Payment Services Ltd.", 
-            "ICICI Lombard General Insurance Co.", "Max Life Insurance Company Ltd.",
-            # Energy
-            "Reliance Industries Ltd.", "Oil and Natural Gas Corporation (ONGC)", 
-            "Indian Oil Corporation Ltd. (IOCL)", "GAIL (India) Ltd.", "Bharat Petroleum Corporation Ltd. (BPCL)", 
-            "Hindustan Petroleum Corporation Ltd.", "Adani Total Gas Ltd.",
-            # Manufacturing
-            "Tata Steel Ltd.", "Larsen & Toubro Ltd.", "Mahindra & Mahindra Ltd.", 
-            "Jindal Steel & Power Ltd.", "NTPC Ltd.", "Hindalco Industries Ltd.",
-            # Pharma/Consumer
-            "Hindustan Unilever Ltd.", "Serum Institute of India Pvt. Ltd.", "Zydus Lifesciences Ltd.", 
-            "Glenmark Pharmaceuticals Ltd.", "Reckitt Benckiser (India) Pvt. Ltd.",
-            # Others
-            "Reliance Jio Infocomm Ltd.", "Power Grid Corporation of India Ltd.", 
-            "Maruti Suzuki India Ltd.", "Vedanta Ltd.", "Samsung India Electronics Pvt. Ltd."
+            "Zoho", "Infosys", "TCS", "Wipro", "Google", "Microsoft", "Amazon", "Flipkart",
+            "Reliance Industries", "HDFC Bank", "ICICI Bank", "Tata Steel", "Adani Group"
         ]
         company = st.selectbox("Target Company", company_options, key="company_select")
             
@@ -1934,8 +1915,8 @@ def employer_dashboard():
     # Company Selection
     company_options = [
         "All Companies",
-        "Tata Consultancy Services (TCS)", "Infosys Ltd.", "Wipro Ltd.", "HCL Technologies Ltd.", 
-        "Tech Mahindra Ltd.", "Reliance Industries Ltd.", "HDFC Bank Ltd.", "ICICI Bank Ltd.", "Mahindra & Mahindra Ltd."
+        "Zoho", "Infosys", "TCS", "Wipro", "Google", "Microsoft", "Amazon", "Flipkart",
+        "Reliance Industries", "HDFC Bank", "ICICI Bank", "Tata Steel", "Adani Group"
     ]
     
     
