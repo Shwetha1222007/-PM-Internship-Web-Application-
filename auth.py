@@ -46,7 +46,7 @@ def login_user(email, password):
         conn.close()
         return None
     
-    print(f"[LOGIN DEBUG] User found: {user['name']} (ID: {user['id']}, Role: {user.get('role', 'N/A')})")
+    print(f"[LOGIN DEBUG] User found: {user['name']} (ID: {user['id']}, Role: {user['role'] if 'role' in dict(user).keys() else 'N/A'})")
     
     verified_user = None
     stored_password = user['password']
