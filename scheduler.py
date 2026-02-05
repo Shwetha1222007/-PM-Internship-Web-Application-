@@ -7,6 +7,7 @@ import schedule
 import time
 import threading
 from auto_status_manager import run_status_check
+from ai_auto_selector import process_all_companies
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,17 +29,31 @@ class BackgroundScheduler:
         
         self.running = True
         
-        # Schedule the status check to run every hour
+        # Schedule the status check to run every hour (for 48-hour deadline monitoring)
         schedule.every(1).hours.do(run_status_check)
         
-        # Also run immediately on startup
+        # Schedule AI processing to run every 30 minutes (for new applications)
+        schedule.every(30).minutes.do(self._safe_ai_process)
+        
+        # Run AI processing immediately on startup
+        self._safe_ai_process()
+        
+        # Also run status check on startup
         run_status_check()
         
         # Start the scheduler in a background thread
         self.thread = threading.Thread(target=self._run_scheduler, daemon=True)
         self.thread.start()
         
-        logger.info("Background scheduler started - checking every hour")
+        logger.info("Background scheduler started - AI processing every 30 min, status check every hour")
+    
+    def _safe_ai_process(self):
+        """Safely run AI processing with error handling"""
+        try:
+            logger.info("Running scheduled AI processing...")
+            process_all_companies()
+        except Exception as e:
+            logger.error(f"Error in scheduled AI processing: {str(e)}")
     
     def _run_scheduler(self):
         """Internal method to run the scheduler loop"""

@@ -964,12 +964,34 @@ def register():
     st.markdown('<div class="premium-card">', unsafe_allow_html=True)
     st.markdown('<div class="card-title">📝 Create Your Account</div>', unsafe_allow_html=True)
     
+    # Age eligibility notice
+    st.markdown("""
+    <div style="background: rgba(255, 183, 3, 0.15); padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #ffb703;">
+        <strong style="color: #ffb703;">📋 Eligibility Criteria:</strong>
+        <p style="color: #e0e0e0; margin: 5px 0 0 0; font-size: 14px;">
+            Only candidates aged <strong>21 to 24 years</strong> are eligible for this internship program.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Calculate age range for date picker
+    import datetime
+    today = datetime.date.today()
+    # For 21 years: born between today - 24 years and today - 21 years
+    max_dob = datetime.date(today.year - 21, today.month, today.day)  # Must be at least 21
+    min_dob = datetime.date(today.year - 24, today.month, today.day)  # Must be at most 24
+    
     with st.form("registration_form", clear_on_submit=False):
         col1, col2 = st.columns(2)
         with col1:
             name = st.text_input("Full Name", placeholder="Enter your full name")
             phone = st.text_input("Phone Number", placeholder="+91 XXXXXXXXXX")
-            dob = st.date_input("Date of Birth", min_value=datetime.date(1990, 1, 1))
+            dob = st.date_input(
+                "Date of Birth (Age: 21-24 years)", 
+                min_value=min_dob,
+                max_value=max_dob,
+                help=f"You must be between 21 and 24 years old. Valid dates: {min_dob.strftime('%d-%m-%Y')} to {max_dob.strftime('%d-%m-%Y')}"
+            )
             district = st.text_input("District", placeholder="Your district")
         
         with col2:
@@ -991,19 +1013,30 @@ def register():
         submit_btn = st.form_submit_button("✨ CREATE ACCOUNT", use_container_width=True)
         
         if submit_btn:
+            # Validate required fields
             if not name or not email or not password or blood_group == "Select Blood Group":
                 st.error("⚠️ Please fill in all required fields!")
             elif bank_account and len(bank_account) != 11:
                 st.error("⚠️ Bank Account Number must be exactly 11 digits!")
             else:
-                if register_user((name, email, phone, password, str(dob), district, rural, 
-                                social_category, aadhaar, address, blood_group, bank_account)):
-                    st.success("✅ Registration Successful! Please login to continue.")
-                    st.balloons()
-                    st.session_state.page = "login"
-                    st.rerun()
+                # Calculate age from DOB
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                
+                # Validate age (21-24 years)
+                if age < 21:
+                    st.error(f"❌ You must be at least 21 years old to register. Your current age: {age} years")
+                elif age > 24:
+                    st.error(f"❌ You must be at most 24 years old to register. Your current age: {age} years")
                 else:
-                    st.error("❌ Registration failed. Email may already exist or there was a database error.")
+                    # Age is valid, proceed with registration
+                    if register_user((name, email, phone, password, str(dob), district, rural, 
+                                    social_category, aadhaar, address, blood_group, bank_account)):
+                        st.success(f"✅ Registration Successful! (Age: {age} years) Please login to continue.")
+                        st.balloons()
+                        st.session_state.page = "login"
+                        st.rerun()
+                    else:
+                        st.error("❌ Registration failed. Email may already exist or there was a database error.")
     
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("← Back to Home"):
@@ -1983,6 +2016,39 @@ def employer_dashboard():
             """, unsafe_allow_html=True)
     else:
         st.info("ℹ️ No applications received yet.")
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # AI Processing Control Panel
+    st.markdown("### 🤖 AI Selection Control Panel")
+    st.markdown("""
+    <div style="background: rgba(255, 183, 3, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+        <b>ℹ️ AI Auto-Selector:</b> Manually trigger the AI to process all pending applications. 
+        The AI will rank candidates and assign statuses: 1st = Selected (48hr deadline), 2nd = Shortlisted, 3rd+ = Waiting List.
+        Notifications will be sent in order: 3rd → 2nd → 1st, and HR will be notified when complete.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        if st.button("🚀 Run AI Selection Process for All Companies", use_container_width=True, type="primary"):
+            from ai_auto_selector import process_all_companies
+            with st.spinner("🤖 AI is processing applications... This may take a few moments."):
+                try:
+                    process_all_companies()
+                    st.success("✅ AI processing complete! All companies have been processed. Candidates have been ranked and notified.")
+                    st.balloons()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error during AI processing: {str(e)}")
+    
+    with col2:
+        st.markdown("""
+        <div style="background: rgba(40, 167, 69, 0.1); padding: 15px; border-radius: 10px; text-align: center;">
+            <div style="font-size: 12px; color: #28a745; font-weight: 600;">AUTO-RUN</div>
+            <div style="font-size: 10px; color: #b8b8b8; margin-top: 5px;">Every 30 min</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("<br><br>", unsafe_allow_html=True)
     
