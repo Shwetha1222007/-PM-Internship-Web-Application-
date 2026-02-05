@@ -1,36 +1,48 @@
+"""
+Test login with actual credentials
+"""
+import sys
+sys.path.insert(0, '.')
+
+from auth import login_user
 import sqlite3
-import bcrypt
 
 # Connect to database
 conn = sqlite3.connect('data/internship.db')
 conn.row_factory = sqlite3.Row
-cur = conn.cursor()
+cursor = conn.cursor()
 
-# Test login
-email = "shwetha12206@gmail.com"
-test_password = "TempPass123!"
+# Get all users
+users = cursor.execute("SELECT id, name, email, role FROM users").fetchall()
 
-cur.execute("SELECT * FROM users WHERE email = ?", (email,))
-user = cur.fetchone()
-
-if user:
-    stored_password = user['password']
-    
-    print(f"Testing login for: {user['name']} ({user['email']})")
-    print(f"Password hash: {stored_password[:30]}...")
-    print(f"Test password: {test_password}")
-    
-    if stored_password.startswith("$2b$"):
-        if bcrypt.checkpw(test_password.encode('utf-8'), stored_password.encode('utf-8')):
-            print("\n✅ LOGIN SUCCESSFUL!")
-            print(f"You can now login with:")
-            print(f"  Email: {email}")
-            print(f"  Password: {test_password}")
-        else:
-            print("\n❌ LOGIN FAILED - Password does not match")
-    else:
-        print("\n❌ Password is not properly hashed")
-else:
-    print(f"❌ No user found with email: {email}")
+print("Available users:")
+for user in users:
+    print(f"  - {user['email']} ({user['role']})")
 
 conn.close()
+
+print("\n" + "="*60)
+print("TESTING LOGIN")
+print("="*60)
+
+# Test admin login
+print("\n1. Testing admin login:")
+print("   Email: admin@internship.gov.in")
+print("   Password: admin123")
+result = login_user("admin@internship.gov.in", "admin123")
+if result:
+    print(f"   ✅ SUCCESS - Logged in as: {result['name']}")
+else:
+    print(f"   ❌ FAILED")
+
+# Test with wrong password
+print("\n2. Testing with wrong password:")
+print("   Email: admin@internship.gov.in")
+print("   Password: wrongpassword")
+result = login_user("admin@internship.gov.in", "wrongpassword")
+if result:
+    print(f"   ✅ SUCCESS - Logged in as: {result['name']}")
+else:
+    print(f"   ❌ FAILED (Expected)")
+
+print("\n" + "="*60)
