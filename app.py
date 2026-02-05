@@ -2290,10 +2290,11 @@ def hr_dashboard():
     # Tab 0: Review Required (New Flow)
     with tab0:
         st.markdown("### ⏳ Top Candidates Pending Your Approval")
-        st.info("ℹ️ These candidates have been ranked #1 by the AI. Please review and Approve or Decline.")
+        st.info("ℹ️ These candidates have been ranked #1 by the AI. Please review their full profile and take action.")
         
         pending_review = conn.execute("""
-            SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category
+            SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category, 
+                   u.dob, u.aadhaar, u.address, u.blood_group, u.bank_account
             FROM applications a
             JOIN users u ON a.user_id = u.id
             WHERE a.company = ? AND a.status = 'Review Pending'
@@ -2304,60 +2305,97 @@ def hr_dashboard():
             st.success("✨ All pending reviews are complete!")
         else:
             for app in pending_review:
-                st.markdown(f"""
-                <div class="app-detail-card" style="border-left: 5px solid #ffb703; background: rgba(255, 183, 3, 0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div style="flex: 1;">
-                            <h3 style="margin: 0; color: #fff;">{app['name']}</h3>
-                            <p style="color: #b8b8b8; margin: 5px 0;">{app['email']} | {app['district']}</p>
-                            <p><b>AI Score:</b> <span style="color: #ffb703; font-weight: bold;">{app['ai_score']}</span></p>
-                            <p><b>Skills:</b> {app['skills']}</p>
-                            <p><b>College:</b> {app['college_name']} | <b>CGPA:</b> {app['cgpa']}</p>
+                with st.expander(f"👤 {app['name']} - Rank #1 (Click to Expand Full Profile)", expanded=True):
+                    # Profile Detail View
+                    st.markdown(f"""
+                    <div class="app-detail-card" style="border-left: 5px solid #ffb703; background: rgba(0,0,0,0.2);">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <h3 style="color: #ffb703; margin-bottom: 15px;">👤 Personal Information</h3>
+                                <p><b>Name:</b> {app['name']}</p>
+                                <p><b>Email:</b> {app['email']}</p>
+                                <p><b>Phone:</b> {app['phone']}</p>
+                                <p><b>DOB:</b> {app['dob']}</p>
+                                <p><b>District:</b> {app['district']} ({app['rural']})</p>
+                                <p><b>Blood Group:</b> {app['blood_group']}</p>
+                            </div>
+                            <div>
+                                <h3 style="color: #ffb703; margin-bottom: 15px;">📋 Verification Details</h3>
+                                <p><b>Aadhaar:</b> <span style="font-family: monospace;">{app['aadhaar']}</span></p>
+                                <p><b>Bank A/C:</b> <span style="font-family: monospace;">{app['bank_account']}</span></p>
+                                <p><b>Social Cat:</b> {app['social_category']}</p>
+                                <p><b>Address:</b> {app['address']}</p>
+                            </div>
+                        </div>
+                        <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <h3 style="color: #28a745; margin-bottom: 15px;">🎓 Academic Credentials</h3>
+                                <p><b>College:</b> {app['college_name']}</p>
+                                <p><b>CGPA:</b> <span style="font-size: 18px; color: #fff; font-weight: bold;">{app['cgpa']}</span></p>
+                                <p><b>12th %:</b> {app['perc_12th']}%</p>
+                                <p><b>Languages:</b> {app['languages']}</p>
+                            </div>
+                            <div>
+                                <h3 style="color: #28a745; margin-bottom: 15px;">💻 Technical Skills</h3>
+                                <div style="background: rgba(40, 167, 69, 0.1); padding: 10px; border-radius: 8px;">
+                                    <p><b>Skills:</b> {app['skills']}</p>
+                                    <p><b>Experience:</b> {app['experience']}</p>
+                                </div>
+                                <div style="margin-top: 15px;">
+                                    <p><b>AI Score:</b> <span style="color: #ffb703; font-weight: bold; font-size: 20px;">{app['ai_score']}</span></p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    if st.button(f"✅ Approve {app['name']}", key=f"hr_approve_{app['id']}", use_container_width=True):
-                        success, msg = handle_hr_decision(app['id'], hr_user['username'], 'Accept')
-                        if success:
-                            st.success(msg)
-                            st.rerun()
-                        else:
-                            st.error(msg)
-                
-                with col2:
-                    # Logic for Rejection with Mandatory Reason
-                    if f"show_reject_reason_{app['id']}" not in st.session_state:
-                        if st.button(f"❌ Decline Profile", key=f"hr_pre_reject_{app['id']}", use_container_width=True):
-                            st.session_state[f"show_reject_reason_{app['id']}"] = True
-                            st.rerun()
+                    """, unsafe_allow_html=True)
                     
-                    if st.session_state.get(f"show_reject_reason_{app['id']}"):
-                        reason = st.text_area("Reason for Rejection (Required for Admin Audit)", key=f"reason_text_{app['id']}", placeholder="e.g., Skills do not match project specifics...")
-                        if st.button("Submit Rejection & Promote Backup", key=f"hr_submit_reject_{app['id']}", use_container_width=True, type="primary"):
-                            if not reason:
-                                st.error("⚠️ You MUST provide a reason to reject a top candidate.")
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        if st.button(f"✅ Approve & Select {app['name']}", key=f"hr_approve_{app['id']}", use_container_width=True, type="primary"):
+                            success, msg = handle_hr_decision(app['id'], hr_user['username'], 'Accept')
+                            if success:
+                                st.success(msg)
+                                st.rerun()
                             else:
-                                success, msg = handle_hr_decision(app['id'], hr_user['username'], 'Reject', reason)
-                                if success:
+                                st.error(msg)
+                    
+                    with col2:
+                        # Logic for Rejection with Mandatory Reason
+                        if f"show_reject_reason_{app['id']}" not in st.session_state:
+                            if st.button(f"❌ Decline {app['name']}", key=f"hr_pre_reject_{app['id']}", use_container_width=True):
+                                st.session_state[f"show_reject_reason_{app['id']}"] = True
+                                st.rerun()
+                        
+                        if st.session_state.get(f"show_reject_reason_{app['id']}"):
+                            st.warning("⚠️ Declining a top-ranked candidate requires a reason for the Admin Audit Log.")
+                            reason = st.text_area("Mandatory Reason for Rejection:", key=f"reason_text_{app['id']}", placeholder="e.g., Candidates portfolio doesn't match specific tech stack required...")
+                            
+                            col_sub1, col_sub2 = st.columns(2)
+                            with col_sub1:
+                                if st.button("Confirm Reject", key=f"hr_submit_reject_{app['id']}", use_container_width=True, type="secondary"):
+                                    if not reason:
+                                        st.error("⚠️ You MUST provide a reason.")
+                                    else:
+                                        success, msg = handle_hr_decision(app['id'], hr_user['username'], 'Reject', reason)
+                                        if success:
+                                            st.session_state[f"show_reject_reason_{app['id']}"] = False
+                                            st.warning(msg)
+                                            st.rerun()
+                                        else:
+                                            st.error(msg)
+                            with col_sub2:
+                                if st.button("Cancel", key=f"cancel_reject_{app['id']}", use_container_width=True):
                                     st.session_state[f"show_reject_reason_{app['id']}"] = False
-                                    st.warning(msg)
                                     st.rerun()
-                                else:
-                                    st.error(msg)
-                        if st.button("Cancel", key=f"cancel_reject_{app['id']}"):
-                            st.session_state[f"show_reject_reason_{app['id']}"] = False
-                            st.rerun()
 
     # Tab 1: All Applications
     with tab1:
-        st.markdown("### 📋 All Applications for " + company_name)
+        st.markdown(f"### 📋 Application Records for {company_name}")
         
         applications = conn.execute("""
-            SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category
+            SELECT a.*, u.name, u.email, u.phone, u.district, u.rural, u.social_category,
+                   u.dob, u.aadhaar, u.address, u.bank_account
             FROM applications a
             JOIN users u ON a.user_id = u.id
             WHERE a.company = ?
@@ -2365,11 +2403,17 @@ def hr_dashboard():
         """, (company_name,)).fetchall()
         
         if not applications:
-            st.info("ℹ️ No applications received yet.")
+            st.info("ℹ️ No applications found for your company.")
         else:
-            st.success(f"📊 Total Applications: **{len(applications)}**")
+            st.success(f"📊 Total Applications Received: **{len(applications)}**")
+            
+            # Simple Filter inside tab
+            status_filter = st.selectbox("Quick Filter by Status", ["All"] + list(set([a['status'] for a in applications])), key="hr_status_filter")
             
             for app in applications:
+                if status_filter != "All" and app['status'] != status_filter:
+                    continue
+                    
                 status_color = {
                     'Applied': '#ffc107',
                     'Review Pending': '#ffb703',
@@ -2379,22 +2423,22 @@ def hr_dashboard():
                     'Waiting List': '#ff9800'
                 }.get(app['status'], '#666')
                 
-                st.markdown(f"""
-                <div class="app-detail-card" style="border-left: 5px solid {status_color};">
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div style="flex: 1;">
-                            <h3 style="margin: 0; color: #fff;">{app['name']}</h3>
-                            <p style="color: #b8b8b8; margin: 5px 0;">{app['email']} | Status: <b>{app['status']}</b></p>
-                            <p style="font-size: 13px;"><b>Skills:</b> {app['skills']}</p>
-                        </div>
-                        <div style="text-align: right;">
-                             <div style="background: {status_color}; color: white; padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: bold;">
-                                AI Score: {app['ai_score'] or 'N/A'}
-                             </div>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                with st.expander(f"{app['name']} - Status: {app['status']}"):
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.write(f"**Email:** {app['email']}")
+                        st.write(f"**Phone:** {app['phone']}")
+                        st.write(f"**District:** {app['district']}")
+                        st.write(f"**Aadhaar:** {app['aadhaar']}")
+                    with col_b:
+                        st.write(f"**AI Score:** `{app['ai_score'] or 'N/A'}`")
+                        st.write(f"**CGPA:** {app['cgpa']}")
+                        st.write(f"**Skills:** {app['skills']}")
+                        st.write(f"**Applied On:** {app['created_at']}")
+                    st.write(f"**Address:** {app['address']}")
+                    
+                    if app['status'] == 'Rejected' and app['hr_rejection_reason']:
+                        st.error(f"**Rejection Reason:** {app['hr_rejection_reason']}")
     
     # Tab 2: AI Filtered Candidates
     with tab2:
@@ -2460,11 +2504,16 @@ def hr_dashboard():
     
     # Tab 4: Response Tracking
     with tab4:
-        st.markdown("### ⏰ 48-Hour Response Tracking")
-        st.info("ℹ️ Candidates must respond within 48 hours of selection, or the offer will be automatically moved to waiting list and the next candidate will be selected.")
+        st.markdown("### ⏰ Real-time Offer Response Tracking")
+        st.markdown("""
+        <div style="background: rgba(255, 183, 3, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+            <b>⏳ Time Tracking:</b> Candidates have 48 hours to accept offers. Once expired, the system automatically 
+            revokes the offer and promotes the next shortlisted candidate.
+        </div>
+        """, unsafe_allow_html=True)
         
         selected_with_deadline = conn.execute("""
-            SELECT a.*, u.name, u.email, u.phone
+            SELECT a.*, u.name, u.email, u.phone, u.district
             FROM applications a
             JOIN users u ON a.user_id = u.id
             WHERE a.company = ? AND a.status = 'Selected' AND a.response_deadline IS NOT NULL
@@ -2472,7 +2521,7 @@ def hr_dashboard():
         """, (company_name,)).fetchall()
         
         if not selected_with_deadline:
-            st.info("ℹ️ No active offers with deadlines.")
+            st.info("ℹ️ No active offers currently pending response.")
         else:
             now = datetime.datetime.now()
             
@@ -2480,36 +2529,76 @@ def hr_dashboard():
                 deadline = datetime.datetime.fromisoformat(sel['response_deadline'])
                 time_left = deadline - now
                 
+                total_duration = 48 * 3600
+                seconds_passed = total_duration - max(0, time_left.total_seconds())
+                progress = min(1.0, seconds_passed / total_duration)
+                
                 if time_left.total_seconds() > 0:
                     hours_left = int(time_left.total_seconds() // 3600)
                     minutes_left = int((time_left.total_seconds() % 3600) // 60)
-                    status_color = "#28a745" if hours_left > 12 else "#ffc107" if hours_left > 6 else "#dc3545"
+                    status_color = "#28a745" if hours_left > 24 else "#ffc107" if hours_left > 12 else "#dc3545"
                     
                     st.markdown(f"""
-                    <div class="app-detail-card" style="border-left: 5px solid {status_color};">
-                        <h3 style="color: #fff; margin: 0;">{sel['name']}</h3>
-                        <p style="color: #b8b8b8; margin: 5px 0;">{sel['email']}</p>
-                        <p><b>Time Remaining:</b> <span style="color: {status_color}; font-weight: 700; font-size: 18px;">{hours_left}h {minutes_left}m</span></p>
-                        <p style="font-size: 12px; color: #666;">Deadline: {sel['response_deadline']}</p>
+                    <div class="app-detail-card" style="border-left: 5px solid {status_color}; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="color: #fff; margin: 0;">{sel['name']}</h3>
+                                <p style="color: #b8b8b8; margin: 5px 0;">{sel['email']} | {sel['district']}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 24px; font-weight: 800; color: {status_color};">
+                                    {hours_left}h {minutes_left}m
+                                </div>
+                                <div style="font-size: 11px; color: #666;">REMAINING</div>
+                            </div>
+                        </div>
+                        <div style="width: 100%; background: #333; height: 8px; border-radius: 4px; margin-top: 15px; overflow: hidden;">
+                            <div style="width: {progress*100}%; background: {status_color}; height: 100%; transition: width 0.5s ease;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: #666;">
+                            <span>Issued: {sel['selected_at']}</span>
+                            <span>Expires: {sel['response_deadline']}</span>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
                 else:
                     # Deadline passed - will be auto-processed
                     st.markdown(f"""
                     <div class="app-detail-card" style="border-left: 5px solid #dc3545; background: rgba(220, 53, 69, 0.1);">
-                        <h3 style="color: #dc3545; margin: 0;">⏰ EXPIRED: {sel['name']}</h3>
-                        <p style="color: #b8b8b8; margin: 5px 0;">{sel['email']}</p>
-                        <p style="color: #dc3545;"><b>Candidate did not respond within 48 hours</b></p>
-                        <p style="color: #ffb703; font-size: 12px;">This will be automatically moved to waiting list and the next candidate will be selected in the next hourly check.</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="color: #dc3545; margin: 0;">⏰ EXPIRED: {sel['name']}</h3>
+                                <p style="color: #b8b8b8; margin: 5px 0;">{sel['email']}</p>
+                            </div>
+                            <div style="background: #dc3545; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                REVOKE PENDING
+                            </div>
+                        </div>
+                        <p style="color: #dc3545; margin-top: 10px; font-size: 14px;"><b>Candidate did not respond within the 48-hour window.</b></p>
+                        <p style="color: #ffb703; font-size: 12px;">This offer is scheduled for automatic revocation. You can also manually revoke it below to speed up the backup promotion.</p>
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Optional manual override
-                    if st.button(f"🗑️ Manually Process Now for {sel['name']}", key=f"revoke_{sel['id']}"):
-                        conn.execute("UPDATE applications SET status = 'Waiting List', selected_at = NULL, response_deadline = NULL WHERE id = ?", (sel['id'],))
-                        update_seat_allocation(company_name, -1)  # Free up the seat
+                    if st.button(f"🗑️ Force Revoke & Promote Backup for {sel['name']}", key=f"revoke_{sel['id']}", use_container_width=True):
+                        conn.execute("UPDATE applications SET status = 'Rejected', hr_rejection_reason = 'Deadline expired without response' WHERE id = ?", (sel['id'],))
+                        # Promote backup logic
+                        cur_backup = conn.cursor()
+                        cur_backup.execute("""
+                            SELECT id, user_id FROM applications 
+                            WHERE company = ? AND location_pref = ? AND status = 'Shortlisted' 
+                            ORDER BY ai_score DESC LIMIT 1
+                        """, (company_name, sel['location_pref']))
+                        backup = cur_backup.fetchone()
+                        
+                        if backup:
+                             conn.execute("UPDATE applications SET status = 'Selected', selected_at = ?, response_deadline = ? WHERE id = ?", 
+                                         (datetime.datetime.now().isoformat(), (datetime.datetime.now() + datetime.timedelta(hours=48)).isoformat(), backup['id']))
+                             st.success(f"Offer revoked. Backup promoted to Selected.")
+                        else:
+                             update_seat_allocation(company_name, -1)
+                             st.success(f"Offer revoked. No backup available - seat freed.")
+                        
                         conn.commit()
-                        st.success("Moved to waiting list and seat freed up!")
                         st.rerun()
     
     conn.close()

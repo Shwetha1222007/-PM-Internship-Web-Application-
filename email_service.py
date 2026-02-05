@@ -13,53 +13,39 @@ BASE_URL = "http://localhost:8501"
 
 def send_hr_announcement(candidate_profile, application_data, same_qualification=False):
     """
-    Sends a highly detailed email to HR for review.
+    Sends a simple notification to HR that new candidates are available for review.
     """
-    subject = f"APPLICATION FOR REVIEW: PM Internship Scheme - {candidate_profile['name']}"
-    if same_qualification:
-        subject = "⚠️ SAME QUALIFICATION DETECTED: Review Required"
+    subject = f"NEW APPLICATIONS: PM Internship Scheme Review Required"
     
-    status_alert = ""
-    if same_qualification:
-        status_alert = """
-        <div style="background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffeeba;">
-            <strong>⚠️ Same Qualification Mail:</strong> This candidate has identical scores/qualifications as another candidate for the same role. Please review carefully before choosing.
-        </div>
-        """
-
     html = f"""
     <html>
     <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; line-height: 1.6;">
         <div style="background-color: #00296b; padding: 25px; text-align: center; color: white; border-radius: 8px 8px 0 0;">
-            <h1 style="margin: 0; font-size: 22px;">PM Internship Scheme - Official India</h1>
-            <p style="margin: 5px 0 0 0; opacity: 0.8;">Smart Allocation Engine - Candidate Profile Disclosure</p>
+            <h1 style="margin: 0; font-size: 22px;">PM Internship Scheme - HR Alert</h1>
         </div>
         <div style="padding: 30px; border: 1px solid #e1e4e8; border-top: none; background-color: #ffffff;">
             <p>Dear Hiring Manager,</p>
-            {status_alert}
-            <p>A new candidate has been identified as a <strong>High Match</strong> for <strong>{application_data['company']}</strong> in the <strong>{application_data['sector']}</strong> sector.</p>
+            <p>New candidates have been identified for your review at <strong>{application_data['company']}</strong>.</p>
             
-            <h3 style="color: #00296b; border-bottom: 2px solid #f9ab00; padding-bottom: 8px;">Candidate Technical Summary</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff; width: 35%;">Full Name</td><td style="padding: 10px; background: #f8faff;">{candidate_profile['name']}</td></tr>
-                <tr><td style="padding: 10px; font-weight: bold;">ID Number</td><td style="padding: 10px;">PMIS-{str(candidate_profile['id']).zfill(6)}</td></tr>
-                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">College Name</td><td style="padding: 10px; background: #f8faff;">{application_data['college_name']}</td></tr>
-                <tr><td style="padding: 10px; font-weight: bold;">Academic CGPA</td><td style="padding: 10px;">{application_data['cgpa']}</td></tr>
-                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">AI Score</td><td style="padding: 10px; background: #f8faff;"><strong>{application_data.get('ai_score', 'N/A')}</strong></td></tr>
-                <tr><td style="padding: 10px; font-weight: bold;">Key Skills</td><td style="padding: 10px; background: #fffdf5;">{application_data['skills']}</td></tr>
-                <tr><td style="padding: 10px; font-weight: bold; background: #f8faff;">Experience</td><td style="padding: 10px; background: #f8faff;">{application_data['experience']}</td></tr>
-            </table>
-
-            <div style="margin-top: 35px; text-align: center;">
-                <p style="font-size: 14px; color: #666;">Evaluate and take immediate action on this application via the HR Dashboard.</p>
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #dee2e6;">
+                <p style="margin: 0;"><strong>Notification:</strong> {len(application_data) if isinstance(application_data, list) else "1"} New candidate(s) are pending review in your dashboard.</p>
             </div>
+
+            <p>Please login to the <strong>HR Dashboard</strong> to view full candidate profiles, including technical skills, academic performance, and personal details.</p>
+            
+            <div style="margin-top: 30px; text-align: center;">
+                <a href="{BASE_URL}" style="background-color: #00296b; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">OPEN HR DASHBOARD</a>
+            </div>
+            
+            <p style="margin-top: 25px; font-size: 13px; color: #666;"><em>Note: To ensure fair selection, candidate details are now primarily disclosed via the secure portal dashboard.</em></p>
         </div>
         <div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">
-            This is an automated system generated email from the Ministry of Corporate Affairs Internship Portal.
+            This is an automated system generated email from the Ministry of Corporate Affairs.
         </div>
     </body>
     </html>
     """
+    _send_mail(HR_EMAIL, subject, html, is_html=True)
     _send_mail(HR_EMAIL, subject, html, is_html=True)
 
 def send_admin_rejection_audit(hr_name, candidate_name, company, reason):
