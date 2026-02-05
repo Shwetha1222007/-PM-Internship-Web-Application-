@@ -2430,32 +2430,7 @@ def hr_dashboard():
                 st.markdown(f"**#{rank} {cand['name']}** - AI Score: `{score}`")
         else:
             st.write("No 'Applied' candidates left to process.")
-            
-            # Waiting List
-            if waiting_list:
-                st.markdown("<br><br>", unsafe_allow_html=True)
-                st.markdown("### ⏳ Waiting List")
-                st.info(f"📊 {len(waiting_list)} candidates in waiting list")
-                
-                for rank, item in enumerate(waiting_list, available_seats + 1):
-                    cand = item['data']
-                    score = item['score']
-                    
-                    st.markdown(f"""
-                    <div class="app-detail-card" style="border-left: 5px solid #666; opacity: 0.7;">
-                        <div style="display: flex; justify-content: space-between; align-items: start;">
-                            <div style="flex: 1;">
-                                <h4 style="margin: 0; color: #ccc;">#{rank} {cand['name']}</h4>
-                                <p style="color: #888; margin: 5px 0; font-size: 13px;">{cand['email']}</p>
-                                <p style="font-size: 13px;"><b>Skills:</b> {cand['skills']} | <b>CGPA:</b> {cand['cgpa']}</p>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 20px; font-weight: 700; color: #666;">{score}</div>
-                                <div style="font-size: 11px; color: #555;">Score</div>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+    
     
     # Tab 3: Selected Candidates
     with tab3:
