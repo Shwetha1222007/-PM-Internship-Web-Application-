@@ -69,7 +69,11 @@ def process_company_applications(company_name):
             conn.close()
             return
         
-        logger.info(f"AI ranking complete. Top candidate score: {ranked_candidates[0]['score']}")
+        # REVERSE RANKING: Lowest score = Best candidate (gets offer)
+        # This prioritizes candidates with lower qualifications
+        ranked_candidates.reverse()  # Reverse so lowest score is first
+        
+        logger.info(f"AI ranking complete (REVERSED). Selected candidate score: {ranked_candidates[0]['score']}")
         
         # Update AI scores in database
         for ranked in ranked_candidates:
@@ -81,7 +85,7 @@ def process_company_applications(company_name):
         
         conn.commit()
         
-        # Assign statuses based on ranking
+        # Assign statuses based on ranking (REVERSED: lowest score = selected)
         notifications_to_send = []
         
         for idx, ranked in enumerate(ranked_candidates):
@@ -89,7 +93,7 @@ def process_company_applications(company_name):
             rank = idx + 1
             
             if rank == 1:
-                # 1st candidate → Selected with 48-hour deadline
+                # 1st candidate (LOWEST SCORE) → Selected with 48-hour deadline
                 status = "Selected"
                 selected_time = datetime.datetime.now()
                 deadline = selected_time + datetime.timedelta(hours=48)
@@ -103,7 +107,7 @@ def process_company_applications(company_name):
                 message = f"🎉 Congratulations! You have been SELECTED for the internship at {company_name}. You must contact the company within 48 hours to confirm your acceptance. Deadline: {deadline.strftime('%B %d, %Y at %I:%M %p')}"
                 
             elif rank == 2:
-                # 2nd candidate → Shortlisted
+                # 2nd candidate (MEDIUM SCORE) → Shortlisted
                 status = "Shortlisted"
                 
                 cursor.execute("""
@@ -115,7 +119,7 @@ def process_company_applications(company_name):
                 message = f"🌟 Great news! You have been SHORTLISTED for the internship at {company_name}. You are the second-ranked candidate. If the top candidate doesn't respond within 48 hours, you will be automatically promoted to Selected status."
                 
             else:
-                # 3rd+ candidates → Waiting List
+                # 3rd+ candidates (HIGHER SCORES) → Waiting List
                 status = "Waiting List"
                 
                 cursor.execute("""
