@@ -88,7 +88,7 @@ def select_candidates_and_create_waiting_list(company, location, requirements):
     """
     ranked = process_applications_for_position(company, location, requirements)
     if not ranked:
-        return {'selected_count': 0, 'waiting_list_count': 0}
+        return {'review_pending': 0, 'shortlisted': 0, 'waiting_list': 0}
 
     conn = get_connection()
     cur = conn.cursor()
