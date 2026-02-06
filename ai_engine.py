@@ -11,28 +11,35 @@ def ai_filter_candidates(candidates_list, requirements):
     for cand in candidates_list:
         score = 0
         
+        # Handle potential None values for strings
+        skills_raw = cand.get('skills') or ''
+        social_cat_raw = cand.get('social_category') or ''
+        rural_raw = cand.get('rural') or ''
+        rural_urban_raw = cand.get('rural_urban') or ''
+        experience_raw = cand.get('experience') or ''
+        
         # Skill Match Score (assuming comma separated)
-        cand_skills = set(s.strip().lower() for s in cand.get('skills', '').split(','))
+        cand_skills = set(s.strip().lower() for s in skills_raw.split(','))
         req_skills = set(s.strip().lower() for s in requirements.get('skills', '').split(','))
         match_count = len(cand_skills.intersection(req_skills))
         score += match_count * 15
         
         # CGPA Score (Max 10)
-        cgpa = cand.get('cgpa', 0)
-        score += (cgpa * 5) # Up to 50 points
+        cgpa = cand.get('cgpa') or 0.0
+        score += (float(cgpa) * 5) # Up to 50 points
         
         # Experience weight
-        if cand.get('experience') and len(cand.get('experience')) > 10:
+        if len(experience_raw) > 10:
             score += 10
             
         # Rural Priority Weight
-        is_rural = cand.get('rural') == 'Yes' or cand.get('rural_urban') == 'Rural'
+        is_rural = rural_raw == 'Yes' or rural_urban_raw == 'Rural'
         if is_rural:
             score += 20
         
         # Social Category Priority Weight
         # "SC", "ST", "OBC", "MBC", "BC"
-        social_category = cand.get('social_category', '').upper().replace('.', '')
+        social_category = social_cat_raw.upper().replace('.', '')
         is_reserved = social_category in ['SC', 'ST', 'OBC', 'MBC', 'BC', 'MBC/DNC']
         if is_reserved:
             score += 20
