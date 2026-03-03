@@ -10,9 +10,26 @@ obj/
 # Logs
 *.log
 
-# Database
+# Database files
 *.mdf
 *.ldf
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.env
+.venv
+env/
+venv/
 
 # OS files
 .DS_Store
